@@ -18,5 +18,5 @@ jobs:
           deno-version: v1.x
       - name: Run tests with coverage
         run: |
-          deno test --unstable-test --unstable-coverage --allow-all --coverage=cov_profile
+          deno test --allow-all --coverage=cov_profile
           deno coverage cov_profile --threshold=75
