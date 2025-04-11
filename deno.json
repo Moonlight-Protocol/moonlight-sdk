@@ -14,7 +14,7 @@
     "coverage:lcov": "deno coverage coverage --lcov > lcov.info",
     "build": "deno bundle mod.ts dist/moonlight-sdk.js"
   },
-  "nodeModulesDir": true,
+  "nodeModulesDir": "auto",
   "exports": "./mod.ts",
   "imports": {
     "@fifo/convee": "jsr:@fifo/convee@^0.5.0",
