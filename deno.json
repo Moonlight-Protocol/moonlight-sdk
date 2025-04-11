@@ -1,6 +1,6 @@
 {
   "name": "@moonlight/moonlight-sdk",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A privacy-focused toolkit for the Moonlight protocol on Stellar Soroban smart contracts.",
   "license": "MIT",
   "tasks": {
