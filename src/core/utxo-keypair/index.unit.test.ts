@@ -1,12 +1,12 @@
+// deno-lint-ignore-file require-await
 import {
   assertEquals,
   assertNotEquals,
   assertRejects,
-  assertThrows,
 } from "https://deno.land/std@0.220.1/assert/mod.ts";
 import { BaseDerivator } from "../../derivation/base/index.ts";
 import { UTXOKeypair } from "./index.ts";
-import { BalanceFetcher, UTXOStatus } from "./types.ts";
+import { type BalanceFetcher, UTXOStatus } from "./types.ts";
 
 // Mock key data for testing
 const mockPrivateKey = new Uint8Array([1, 2, 3, 4, 5]);

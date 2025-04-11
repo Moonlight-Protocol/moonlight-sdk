@@ -1,4 +1,4 @@
-// deno-lint-ignore-file require-await
+// deno-lint-ignore-file require-await no-explicit-any
 import {
   assertEquals,
   assertExists,
@@ -11,6 +11,7 @@ import { StellarDerivator } from "../../derivation/index.ts";
 import { StellarPlus } from "stellar-plus";
 // Import the actual class after importing StellarPlus
 import { PoolEngine } from "./index.ts";
+import { loadContractWasm } from "../../../test/helpers/load-wasm.ts";
 
 // Store the original ContractEngine for restoration after tests
 const OriginalContractEngine = StellarPlus.Core.ContractEngine;
@@ -37,16 +38,7 @@ StellarDerivator.prototype.withNetworkAndContract = function () {
   return this;
 };
 
-/**
- * Test setup - common values used across tests
- */
-// Load the actual privacy pool WASM file using a relative path
-async function loadWasm() {
-  // Use relative path from the project root
-  const wasmPath = "test/contracts/privacy_pool.wasm";
-  const wasmBytes = await Deno.readFile(wasmPath);
-  return Buffer.from(wasmBytes);
-}
+const wasmBinary = loadContractWasm("privacy_pool");
 
 // Use StellarPlus's built-in TestNet() function for network configuration
 const testAssetContractId =
@@ -54,7 +46,6 @@ const testAssetContractId =
 
 Deno.test("PoolEngine", async (t) => {
   await t.step("constructor should initialize properly", async () => {
-    const wasmBinary = await loadWasm();
     const poolEngine = new PoolEngine({
       networkConfig: StellarPlus.Network.TestNet(),
       wasm: wasmBinary,
@@ -69,7 +60,6 @@ Deno.test("PoolEngine", async (t) => {
   await t.step(
     "create() method should initialize and load WASM spec",
     async () => {
-      const wasmBinary = await loadWasm();
       const poolEngine = await PoolEngine.create({
         networkConfig: StellarPlus.Network.TestNet(),
         wasm: wasmBinary,
@@ -85,7 +75,6 @@ Deno.test("PoolEngine", async (t) => {
   await t.step(
     "buildBurnPayload() should create correctly formatted payload",
     async () => {
-      const wasmBinary = await loadWasm();
       const poolEngine = new PoolEngine({
         networkConfig: StellarPlus.Network.TestNet(),
         wasm: wasmBinary,
@@ -115,7 +104,6 @@ Deno.test("PoolEngine", async (t) => {
   await t.step(
     "buildWithdrawPayload() should create correctly formatted payload",
     async () => {
-      const wasmBinary = await loadWasm();
       const poolEngine = new PoolEngine({
         networkConfig: StellarPlus.Network.TestNet(),
         wasm: wasmBinary,
@@ -136,7 +124,6 @@ Deno.test("PoolEngine", async (t) => {
   await t.step(
     "buildBundlePayload() should create correctly formatted payload for TRANSFER",
     async () => {
-      const wasmBinary = await loadWasm();
       const poolEngine = new PoolEngine({
         networkConfig: StellarPlus.Network.TestNet(),
         wasm: wasmBinary,
@@ -189,7 +176,6 @@ Deno.test("PoolEngine", async (t) => {
   await t.step(
     "buildBundlePayload() should support custom actions",
     async () => {
-      const wasmBinary = await loadWasm();
       const poolEngine = new PoolEngine({
         networkConfig: StellarPlus.Network.TestNet(),
         wasm: wasmBinary,

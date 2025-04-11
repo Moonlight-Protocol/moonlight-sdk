@@ -17,3 +17,7 @@ This SDK provides functionalities to:
 - **Derive Private UTXO Addresses:** Generate standardized UTXO key pairs based on a root secret, following the Moonlight protocol specifications (`Derivator`).
 - **Manage UTXO-Based Accounts:** Seamlessly create and manage the state of UTXO-based accounts, tracking balances and statuses (FREE, UNSPENT, SPENT) (`UtxoBasedStellarAccount`).
 - **Handle Privacy Transactions:** Facilitate the creation and submission of transactions for deposits and withdrawals involving private UTXOs.
+
+## Contributing
+
+We welcome contributions! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) file for guidelines on how to contribute to this project.

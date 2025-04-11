@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Detect version bump
+        run: |
+          # Check package JSON for new version, set environment variables if changed
+          VERSION=$(jq -r '.version' package.json)
+          if [ "$VERSION" != "$(git describe --tags --abbrev=0)" ]; then
+            echo "VERSION_IS_UPDATED=true" >> $GITHUB_ENV
+            echo "NEW_VERSION=$VERSION" >> $GITHUB_ENV
+          fi
+
+      - name: Create and push tag
+        if: env.VERSION_IS_UPDATED == 'true'
+        run: |
+          git tag v${{ env.NEW_VERSION }}
+          git push origin v${{ env.NEW_VERSION }}
+
+      - name: Draft GitHub release
+        if: env.VERSION_IS_UPDATED == 'true'
+        uses: actions/create-release@v1
+        with:
+          tag_name: v${{ env.NEW_VERSION }}
+          release_name: v${{ env.NEW_VERSION }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish on jsr
+        if: env.VERSION_IS_UPDATED == 'true'
+        run: |
+          npm publish
