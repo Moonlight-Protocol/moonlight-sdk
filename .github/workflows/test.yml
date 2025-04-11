@@ -1,0 +1,22 @@
+name: Test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Set up Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - name: Run tests with coverage
+        run: |
+          deno test --unstable --allow-all --coverage=cov_profile
+          deno coverage cov_profile --threshold=75
