@@ -13,8 +13,8 @@ jobs:
 
       - name: Detect version bump
         run: |
-          # Check package JSON for new version, set environment variables if changed
-          VERSION=$(jq -r '.version' package.json)
+          # Check deno.json for new version, set environment variables if changed
+          VERSION=$(jq -r '.version' deno.json)
           if [ "$VERSION" != "$(git describe --tags --abbrev=0)" ]; then
             echo "VERSION_IS_UPDATED=true" >> $GITHUB_ENV
             echo "NEW_VERSION=$VERSION" >> $GITHUB_ENV

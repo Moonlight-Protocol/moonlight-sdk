@@ -155,7 +155,10 @@ export class PoolEngine extends ContractEngine {
    * @returns {Uint8Array} The payload for the burn operation.
    *
    * */
-  public buildBurnPayload(args: { utxo: Uint8Array; amount: bigint }) {
+  public buildBurnPayload(args: {
+    utxo: Uint8Array;
+    amount: bigint;
+  }): Uint8Array {
     const { utxo, amount } = args;
 
     const action = SimplePayloadAction.BURN;

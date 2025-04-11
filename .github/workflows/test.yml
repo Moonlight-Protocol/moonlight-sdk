@@ -1,8 +1,6 @@
 name: Test
 
 on:
-  push:
-    branches: ["main"]
   pull_request:
     branches: ["main"]
 
@@ -15,7 +13,7 @@ jobs:
       - name: Set up Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: v1.x
+          deno-version: v2.x
       - name: Run unit tests with coverage
         run: |
           deno test --allow-all src/ --coverage=cov_profile
