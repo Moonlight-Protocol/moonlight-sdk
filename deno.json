@@ -1,6 +1,7 @@
 {
   "name": "@moonlight/moonlight-sdk",
   "version": "0.1.0",
+  "description": "A privacy-focused toolkit for the Moonlight protocol on Stellar Soroban smart contracts.",
   "license": "MIT",
   "tasks": {
     "start": "deno run --allow-all index.ts",
@@ -8,10 +9,10 @@
     "test": "deno test --allow-all",
     "test:unit": "deno test --allow-all src/",
     "test:integration": "deno test --allow-all test/integration/",
-    "test:watch": "deno test --allow-all --watch",
     "test:coverage": "rm -rf coverage && deno test --allow-all --coverage=coverage",
     "coverage:report": "deno coverage coverage",
-    "coverage:lcov": "deno coverage coverage --lcov > lcov.info"
+    "coverage:lcov": "deno coverage coverage --lcov > lcov.info",
+    "build": "deno bundle mod.ts dist/moonlight-sdk.js"
   },
   "nodeModulesDir": "auto",
   "exports": "./mod.ts",
