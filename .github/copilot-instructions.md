@@ -110,3 +110,10 @@ This is the Moonlight SDK, a privacy-focused toolkit for blockchain development 
 - Maintain consistent API patterns across the SDK
 - When implementing cryptographic functions, prioritize security over performance
 - Include proper input validation for all public-facing APIs
+
+## General Instructions:
+
+- **No Placeholders**: Never include placeholder text in generated code or documentation.
+- **Ask First**: Always ask for the necessary information to replace any potential placeholders before generating the content.
+- **Use Provided Information**: Use the information provided by the user to fill in the details accurately.
+- **Refer to Existing Files**: Before creating a new file, always check if an existing file can be modified to include the new content.
