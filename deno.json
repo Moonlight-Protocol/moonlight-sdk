@@ -1,0 +1,33 @@
+{
+  "name": "@moonlight/moonlight-sdk",
+  "version": "0.1.0",
+  "license": "MIT",
+  "tasks": {
+    "start": "deno run --allow-all index.ts",
+    "test-setup": "deno run --allow-all ./test/scripts/full-setup.ts",
+    "test": "deno test --allow-all",
+    "test:unit": "deno test --allow-all src/",
+    "test:integration": "deno test --allow-all test/integration/",
+    "test:watch": "deno test --allow-all --watch",
+    "test:coverage": "rm -rf coverage && deno test --allow-all --coverage=coverage",
+    "coverage:report": "deno coverage coverage",
+    "coverage:lcov": "deno coverage coverage --lcov > lcov.info"
+  },
+  "nodeModulesDir": "auto",
+  "exports": "./mod.ts",
+  "imports": {
+    "@fifo/convee": "jsr:@fifo/convee@^0.5.0",
+    "@noble/curves": "jsr:@noble/curves",
+    "@noble/hashes": "jsr:@noble/hashes",
+    "@noble/secp256k1": "jsr:@noble/secp256k1",
+    "jsr:@noble/curves/p256": "jsr:@noble/curves/p256@latest",
+    "jsr:@noble/hashes/sha256": "jsr:@noble/hashes/sha256@latest",
+    "jsr:@noble/hashes/hkdf": "jsr:@noble/hashes/hkdf@latest",
+    "jsr:@noble/curves/abstract/modular": "jsr:@noble/curves/abstract/modular@latest",
+    "stellar-plus": "npm:stellar-plus@^0.14.1",
+
+    "tslib": "npm:tslib@2.5.0",
+    "buffer": "npm:buffer@6.0.3",
+    "asn1js": "npm:asn1js@3.0.5"
+  }
+}
