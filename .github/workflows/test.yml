@@ -16,7 +16,8 @@ jobs:
         uses: denoland/setup-deno@v1
         with:
           deno-version: v1.x
-      - name: Run tests with coverage
+      - name: Run unit tests with coverage
         run: |
-          deno test --allow-all --coverage=cov_profile
-          deno coverage cov_profile --threshold=75
+          deno test --allow-all src/ --coverage=cov_profile
+          deno coverage cov_profile > coverage_summary.txt
+          awk '/total:/ { if ($2 < 75) exit 1 }' coverage_summary.txt
