@@ -4,6 +4,10 @@ on:
   push:
     branches: ["main"]
 
+# Add explicit permissions for the GITHUB_TOKEN
+permissions:
+  contents: write # Needed for tag creation, pushing, and releases
+
 jobs:
   release:
     runs-on: ubuntu-latest
