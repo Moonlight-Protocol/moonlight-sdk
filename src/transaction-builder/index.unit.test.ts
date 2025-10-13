@@ -6,7 +6,7 @@ import {
   assertThrows,
 } from "https://deno.land/std@0.220.1/assert/mod.ts";
 import { MoonlightTransactionBuilder, createOpToXDR, depositOpToXDR, withdrawOpToXDR, spendOpToXDR } from "./index.ts";
-import { Asset, Keypair, xdr } from "stellar-sdk";
+import { Asset, Keypair, xdr } from "@stellar/stellar-sdk";
 import { IUTXOKeypairBase } from "../core/utxo-keypair-base/types.ts";
 import { Condition } from "../conditions/types.ts";
 import { StellarSmartContractId } from "../utils/types/stellar.types.ts";

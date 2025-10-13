@@ -1,5 +1,5 @@
 import { Condition } from "./types.ts";
-import { nativeToScVal, xdr } from "stellar-sdk";
+import { nativeToScVal, xdr } from "@stellar/stellar-sdk";
 import { Buffer } from "buffer";
 import { CreateCondition, DepositCondition, WithdrawCondition } from "./types.ts";
 

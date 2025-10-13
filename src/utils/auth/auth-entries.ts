@@ -1,4 +1,4 @@
-import { Address, nativeToScVal, scValToNative, xdr } from "stellar-sdk";
+import { Address, nativeToScVal, scValToNative, xdr } from "@stellar/stellar-sdk";
 
 // deno-lint-ignore-file no-explicit-any
 export interface AuthEntryParams {
