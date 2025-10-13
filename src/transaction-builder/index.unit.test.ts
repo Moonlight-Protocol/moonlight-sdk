@@ -321,3 +321,161 @@ Deno.test("MoonlightTransactionBuilder - Basic Operations (Add Methods)", async 
     assertEquals(operations.withdraw.length, 1);
   });
 });
+
+Deno.test("MoonlightTransactionBuilder - Internal Signatures", async (t) => {
+  await t.step("addInnerSignature should add signature for existing spend operation", () => {
+    const builder = createTestBuilder();
+    const mockSignature = new Uint8Array(64).fill(0x42);
+    const expirationLedger = 1000;
+    
+    // First add a spend operation
+    builder.addSpend(mockUTXO1, [mockCreateCondition]);
+    
+    const result = builder.addInnerSignature(mockUTXO1, mockSignature, expirationLedger);
+    
+    // Should return builder instance for chaining
+    assertEquals(result, builder);
+    
+    // Verify signature was added (we can't directly access private properties,
+    // but we can test that the method doesn't throw and returns the builder)
+    assertEquals(result instanceof MoonlightTransactionBuilder, true);
+  });
+
+  await t.step("addInnerSignature should throw error when UTXO not found in spend operations", () => {
+    const builder = createTestBuilder();
+    const mockSignature = new Uint8Array(64).fill(0x42);
+    const expirationLedger = 1000;
+    
+    // Don't add any spend operations
+    
+    // Should throw error when trying to add signature for non-existent UTXO
+    assertThrows(
+      () => builder.addInnerSignature(mockUTXO1, mockSignature, expirationLedger),
+      Error,
+      "No spend operation for this UTXO"
+    );
+  });
+
+  await t.step("addProviderInnerSignature should add provider signature", () => {
+    const builder = createTestBuilder();
+    const mockSignature = new Uint8Array(64).fill(0x43);
+    const expirationLedger = 1000;
+    const nonce = "123456789";
+    
+    const result = builder.addProviderInnerSignature(
+      mockEd25519Key1,
+      mockSignature,
+      expirationLedger,
+      nonce
+    );
+    
+    // Should return builder instance for chaining
+    assertEquals(result, builder);
+    
+    // Verify the method doesn't throw and returns the builder
+    assertEquals(result instanceof MoonlightTransactionBuilder, true);
+  });
+
+  await t.step("addExtSignedEntry should add external signature for existing deposit", () => {
+    const builder = createTestBuilder();
+    const mockAuthEntry = {} as xdr.SorobanAuthorizationEntry;
+    
+    // First add a deposit operation
+    builder.addDeposit(mockEd25519Key1, 500n, [mockDepositCondition]);
+    
+    const result = builder.addExtSignedEntry(mockEd25519Key1, mockAuthEntry);
+    
+    // Should return builder instance for chaining
+    assertEquals(result, builder);
+    
+    // Verify the method doesn't throw and returns the builder
+    assertEquals(result instanceof MoonlightTransactionBuilder, true);
+  });
+
+  await t.step("addExtSignedEntry should add external signature for existing withdraw", () => {
+    const builder = createTestBuilder();
+    const mockAuthEntry = {} as xdr.SorobanAuthorizationEntry;
+    
+    // First add a withdraw operation
+    builder.addWithdraw(mockEd25519Key1, 300n, [mockWithdrawCondition]);
+    
+    const result = builder.addExtSignedEntry(mockEd25519Key1, mockAuthEntry);
+    
+    // Should return builder instance for chaining
+    assertEquals(result, builder);
+    
+    // Verify the method doesn't throw and returns the builder
+    assertEquals(result instanceof MoonlightTransactionBuilder, true);
+  });
+
+  await t.step("addExtSignedEntry should throw error when public key not found", () => {
+    const builder = createTestBuilder();
+    const mockAuthEntry = {} as xdr.SorobanAuthorizationEntry;
+    
+    // Don't add any deposit or withdraw operations
+    
+    // Should throw error when trying to add signature for non-existent public key
+    assertThrows(
+      () => builder.addExtSignedEntry(mockEd25519Key1, mockAuthEntry),
+      Error,
+      "No deposit or withdraw operation for this public key"
+    );
+  });
+
+  await t.step("should allow chaining signature operations", () => {
+    const builder = createTestBuilder();
+    const mockSignature = new Uint8Array(64).fill(0x44);
+    const mockAuthEntry = {} as xdr.SorobanAuthorizationEntry;
+    
+    // Add operations first
+    builder.addSpend(mockUTXO1, [mockCreateCondition]);
+    builder.addDeposit(mockEd25519Key1, 500n, [mockDepositCondition]);
+    
+    const result = builder
+      .addInnerSignature(mockUTXO1, mockSignature, 1000)
+      .addProviderInnerSignature(mockEd25519Key1, mockSignature, 1000, "nonce123")
+      .addExtSignedEntry(mockEd25519Key1, mockAuthEntry);
+    
+    // Should return builder instance
+    assertEquals(result, builder);
+    
+    // Verify the method doesn't throw and returns the builder
+    assertEquals(result instanceof MoonlightTransactionBuilder, true);
+  });
+
+  await t.step("should handle multiple provider signatures", () => {
+    const builder = createTestBuilder();
+    const mockSignature1 = new Uint8Array(64).fill(0x45);
+    const mockSignature2 = new Uint8Array(64).fill(0x46);
+    
+    const result = builder
+      .addProviderInnerSignature(mockEd25519Key1, mockSignature1, 1000, "nonce1")
+      .addProviderInnerSignature(mockEd25519Key2, mockSignature2, 1000, "nonce2");
+    
+    // Should return builder instance
+    assertEquals(result, builder);
+    
+    // Verify the method doesn't throw and returns the builder
+    assertEquals(result instanceof MoonlightTransactionBuilder, true);
+  });
+
+  await t.step("should handle multiple inner signatures for different UTXOs", () => {
+    const builder = createTestBuilder();
+    const mockSignature1 = new Uint8Array(64).fill(0x47);
+    const mockSignature2 = new Uint8Array(64).fill(0x48);
+    
+    // Add spend operations for different UTXOs
+    builder.addSpend(mockUTXO1, [mockCreateCondition]);
+    builder.addSpend(mockUTXO2, [mockDepositCondition]);
+    
+    const result = builder
+      .addInnerSignature(mockUTXO1, mockSignature1, 1000)
+      .addInnerSignature(mockUTXO2, mockSignature2, 1000);
+    
+    // Should return builder instance
+    assertEquals(result, builder);
+    
+    // Verify the method doesn't throw and returns the builder
+    assertEquals(result instanceof MoonlightTransactionBuilder, true);
+  });
+});
