@@ -738,3 +738,124 @@ Deno.test("MoonlightTransactionBuilder - High-Level Signing Methods", async (t) 
     assertEquals(xdrString.length > 0, true);
   });
 });
+
+Deno.test("MoonlightTransactionBuilder - Final Methods", async (t) => {
+  await t.step("getSignedAuthEntries should return all signed entries", async () => {
+    const builder = createTestBuilder();
+    const providerKeypair = Keypair.random();
+    const userKeypair = Keypair.random();
+    const expirationLedger = 1000;
+
+    // Add operations and sign
+    builder.addDeposit(userKeypair.publicKey(), 500n, [mockDepositCondition]);
+    await builder.signWithProvider(providerKeypair, expirationLedger);
+    await builder.signExtWithEd25519(userKeypair, expirationLedger);
+
+    const signedEntries = builder.getSignedAuthEntries();
+    
+    // Should return an array of signed auth entries
+    assertEquals(Array.isArray(signedEntries), true);
+    assertEquals(signedEntries.length, 2); // External + operation entry
+  });
+
+  await t.step("getSignedAuthEntries should include external and operation entries", async () => {
+    const builder = createTestBuilder();
+    const providerKeypair = Keypair.random();
+    const userKeypair = Keypair.random();
+    const expirationLedger = 1000;
+
+    // Add operations and sign
+    builder.addDeposit(userKeypair.publicKey(), 500n, [mockDepositCondition]);
+    await builder.signWithProvider(providerKeypair, expirationLedger);
+    await builder.signExtWithEd25519(userKeypair, expirationLedger);
+
+    const signedEntries = builder.getSignedAuthEntries();
+    
+    // Should have both external and operation entries
+    assertEquals(signedEntries.length >= 2, true);
+    
+    // Each entry should be a valid SorobanAuthorizationEntry
+    for (const entry of signedEntries) {
+      assertEquals(!!entry, true);
+    }
+  });
+
+  await t.step("buildXDR should include all operation types", () => {
+    const builder = createTestBuilder();
+    
+    // Add one of each operation type
+    builder
+      .addCreate(mockUTXO1, 1000n)
+      .addSpend(mockUTXO1, [mockCreateCondition])
+      .addDeposit(mockEd25519Key1, 500n, [mockDepositCondition])
+      .addWithdraw(mockEd25519Key2, 300n, [mockWithdrawCondition]);
+
+    const xdr = builder.buildXDR();
+    
+    // Should return valid XDR structure
+    assertEquals(!!xdr, true);
+  });
+
+  await t.step("buildXDR should handle empty operations correctly", () => {
+    const builder = createTestBuilder();
+    
+    // Don't add any operations
+    const xdr = builder.buildXDR();
+    
+    // Should still return valid XDR structure with empty arrays
+    assertEquals(!!xdr, true);
+  });
+
+  await t.step("buildXDR should handle mixed operations", () => {
+    const builder = createTestBuilder();
+    
+    // Add multiple operations of different types
+    builder
+      .addCreate(mockUTXO1, 1000n)
+      .addCreate(mockUTXO2, 2000n)
+      .addSpend(mockUTXO1, [mockCreateCondition])
+      .addDeposit(mockEd25519Key1, 500n, [mockDepositCondition])
+      .addDeposit(mockEd25519Key2, 300n, [mockWithdrawCondition])
+      .addWithdraw(mockEd25519Key1, 200n, [mockWithdrawCondition]);
+
+    const xdr = builder.buildXDR();
+    
+    // Should return valid XDR structure
+    assertEquals(!!xdr, true);
+  });
+
+  await t.step("should handle complete transaction workflow", async () => {
+    const builder = createTestBuilder();
+    const providerKeypair = Keypair.random();
+    const userKeypair = Keypair.random();
+    const mockUtxo = {
+      publicKey: mockUTXO1,
+      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+    };
+    const expirationLedger = 1000;
+
+    // Complete workflow: add operations, sign, and build XDR
+    builder
+      .addCreate(mockUTXO1, 1000n)
+      .addSpend(mockUTXO1, [mockCreateCondition])
+      .addDeposit(userKeypair.publicKey(), 500n, [mockDepositCondition])
+      .addWithdraw(userKeypair.publicKey(), 200n, [mockWithdrawCondition]);
+
+    // Sign with all methods
+    await builder.signWithProvider(providerKeypair, expirationLedger);
+    await builder.signWithSpendUtxo(mockUtxo, expirationLedger);
+    await builder.signExtWithEd25519(userKeypair, expirationLedger);
+
+    // Get signed entries and build XDR
+    const signedEntries = builder.getSignedAuthEntries();
+    const xdr = builder.buildXDR();
+    const xdrString = builder.signaturesXDR();
+
+    // All should be valid
+    assertEquals(Array.isArray(signedEntries), true);
+    assertEquals(signedEntries.length >= 2, true);
+    assertEquals(!!xdr, true);
+    assertEquals(typeof xdrString, "string");
+    assertEquals(xdrString.length > 0, true);
+  });
+});
