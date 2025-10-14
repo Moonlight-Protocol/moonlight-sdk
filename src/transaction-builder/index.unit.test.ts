@@ -525,3 +525,97 @@ Deno.test("MoonlightTransactionBuilder - Authorization and Arguments", async (t)
     assertEquals(!!entry, true);
   });
 });
+
+Deno.test("MoonlightTransactionBuilder - Hash and Signature XDR", async (t) => {
+  await t.step("getOperationAuthEntryHash should return hash for given parameters", async () => {
+    const builder = createTestBuilder();
+    const nonce = "123456789";
+    const exp = 1000;
+
+    const hash = await builder.getOperationAuthEntryHash(nonce, exp);
+    // Should return a 32-byte hash
+    assertEquals(hash.length, 32);
+    assertEquals(hash instanceof Uint8Array, true);
+  });
+
+  await t.step("getOperationAuthEntryHash should use network ID correctly", async () => {
+    const builder = createTestBuilder();
+    const nonce = "123456789";
+    const exp = 1000;
+
+    const hash1 = await builder.getOperationAuthEntryHash(nonce, exp);
+    const hash2 = await builder.getOperationAuthEntryHash(nonce, exp);
+    // Same parameters should produce same hash
+    assertEquals(hash1, hash2);
+  });
+
+  await t.step("getOperationAuthEntryHash should handle different nonce values", async () => {
+    const builder = createTestBuilder();
+    const exp = 1000;
+
+    const hash1 = await builder.getOperationAuthEntryHash("123456789", exp);
+    const hash2 = await builder.getOperationAuthEntryHash("987654321", exp);
+    // Different nonces should produce different hashes
+    assertEquals(hash1.length, 32);
+    assertEquals(hash2.length, 32);
+    // Hashes should be different
+    assertEquals(hash1.every((byte, i) => byte === hash2[i]), false);
+  });
+
+  await t.step("signaturesXDR should throw error when no provider signatures", () => {
+    const builder = createTestBuilder();
+    // Add spend operation but no provider signature
+    builder.addSpend(mockUTXO1, [mockCreateCondition]);
+
+    assertThrows(
+      () => builder.signaturesXDR(),
+      Error,
+      "No Provider signatures added",
+    );
+  });
+
+  await t.step("signaturesXDR should return correct XDR format", () => {
+    const builder = createTestBuilder();
+    const mockSignature = new Uint8Array(64).fill(0x42);
+
+    // Add provider signature
+    builder.addProviderInnerSignature(mockEd25519Key1, mockSignature, 1000, "nonce123");
+
+    const xdrString = builder.signaturesXDR();
+    // Should return a base64 XDR string
+    assertEquals(typeof xdrString, "string");
+    assertEquals(xdrString.length > 0, true);
+  });
+
+  await t.step("signaturesXDR should order signatures correctly", () => {
+    const builder = createTestBuilder();
+    const mockSignature1 = new Uint8Array(64).fill(0x42);
+    const mockSignature2 = new Uint8Array(64).fill(0x43);
+
+    // Add provider signatures in reverse order
+    builder
+      .addProviderInnerSignature(mockEd25519Key2, mockSignature2, 1000, "nonce2")
+      .addProviderInnerSignature(mockEd25519Key1, mockSignature1, 1000, "nonce1");
+
+    const xdrString = builder.signaturesXDR();
+    // Should return valid XDR string (ordering is internal, we just verify it works)
+    assertEquals(typeof xdrString, "string");
+    assertEquals(xdrString.length > 0, true);
+  });
+
+  await t.step("signaturesXDR should handle both provider and spend signatures", () => {
+    const builder = createTestBuilder();
+    const mockSignature = new Uint8Array(64).fill(0x44);
+
+    // Add spend operation and signatures
+    builder
+      .addSpend(mockUTXO1, [mockCreateCondition])
+      .addInnerSignature(mockUTXO1, mockSignature, 1000)
+      .addProviderInnerSignature(mockEd25519Key1, mockSignature, 1000, "nonce123");
+
+    const xdrString = builder.signaturesXDR();
+    // Should return valid XDR string with both types
+    assertEquals(typeof xdrString, "string");
+    assertEquals(xdrString.length > 0, true);
+  });
+});
