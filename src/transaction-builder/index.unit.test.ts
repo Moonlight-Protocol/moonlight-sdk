@@ -1,13 +1,10 @@
 // deno-lint-ignore-file require-await
 import {
   assertEquals,
-  assertNotEquals,
-  assertRejects,
   assertThrows,
 } from "https://deno.land/std@0.220.1/assert/mod.ts";
-import { MoonlightTransactionBuilder, createOpToXDR, depositOpToXDR, withdrawOpToXDR, spendOpToXDR } from "./index.ts";
+import { MoonlightTransactionBuilder } from "./index.ts";
 import { Asset, Keypair, xdr } from "@stellar/stellar-sdk";
-import { IUTXOKeypairBase } from "../core/utxo-keypair-base/types.ts";
 import { Condition } from "../conditions/types.ts";
 import { StellarSmartContractId } from "../utils/types/stellar.types.ts";
 
@@ -44,51 +41,6 @@ const mockWithdrawCondition: Condition = {
   amount: 300n,
 };
 
-// Mock IUTXOKeypairBase
-class MockUTXOKeypair implements IUTXOKeypairBase {
-  publicKey: Uint8Array;
-  privateKey: Uint8Array;
-
-  constructor(publicKey: Uint8Array, privateKey: Uint8Array) {
-    this.publicKey = publicKey;
-    this.privateKey = privateKey;
-  }
-
-  async signPayload(payload: Uint8Array): Promise<Uint8Array> {
-    // Mock signature - return a fixed 64-byte signature
-    return new Uint8Array(64).fill(0x42);
-  }
-}
-
-// Mock functions
-const mockSha256Buffer = async (data: Uint8Array): Promise<ArrayBuffer> => {
-  // Return a mock hash
-  return new ArrayBuffer(32);
-};
-
-const mockGenerateNonce = (): string => {
-  return "1234567890123456789";
-};
-
-const mockBuildAuthPayloadHash = async (params: {
-  contractId: string;
-  conditions: Condition[];
-  liveUntilLedger: number;
-}): Promise<Uint8Array> => {
-  // Return a mock payload hash
-  return new Uint8Array(32).fill(0xAA);
-};
-
-const mockGenerateDepositAuthEntry = (params: any): xdr.SorobanAuthorizationEntry => {
-  // Return a mock auth entry - simplified to avoid complex XDR construction
-  return {} as xdr.SorobanAuthorizationEntry;
-};
-
-const mockGenerateBundleAuthEntry = (params: any): xdr.SorobanAuthorizationEntry => {
-  // Return a mock auth entry - simplified to avoid complex XDR construction
-  return {} as xdr.SorobanAuthorizationEntry;
-};
-
 // Helper function to create a test builder instance
 function createTestBuilder(): MoonlightTransactionBuilder {
   return new MoonlightTransactionBuilder({
@@ -97,11 +49,6 @@ function createTestBuilder(): MoonlightTransactionBuilder {
     asset: mockAsset,
     network: mockNetwork,
   });
-}
-
-// Helper function to create a test Keypair
-function createTestKeypair(): Keypair {
-  return Keypair.random();
 }
 
 Deno.test("MoonlightTransactionBuilder - Basic Operations (Add Methods)", async (t) => {
@@ -477,5 +424,49 @@ Deno.test("MoonlightTransactionBuilder - Internal Signatures", async (t) => {
     
     // Verify the method doesn't throw and returns the builder
     assertEquals(result instanceof MoonlightTransactionBuilder, true);
+  });
+});
+
+Deno.test("MoonlightTransactionBuilder - Query Methods", async (t) => {
+  await t.step("getOperation should return empty arrays when no operations added", () => {
+    const builder = createTestBuilder();
+
+    const op = builder.getOperation();
+    assertEquals(op.create.length, 0);
+    assertEquals(op.spend.length, 0);
+    assertEquals(op.deposit.length, 0);
+    assertEquals(op.withdraw.length, 0);
+  });
+
+  await t.step("getOperation should reflect added operations", () => {
+    const builder = createTestBuilder();
+
+    builder
+      .addCreate(mockUTXO1, 1000n)
+      .addSpend(mockUTXO1, [mockCreateCondition])
+      .addDeposit(mockEd25519Key1, 500n, [mockDepositCondition])
+      .addWithdraw(mockEd25519Key2, 300n, [mockWithdrawCondition]);
+
+    const op = builder.getOperation();
+    assertEquals(op.create.length, 1);
+    assertEquals(op.spend.length, 1);
+    assertEquals(op.deposit.length, 1);
+    assertEquals(op.withdraw.length, 1);
+  });
+
+  await t.step("getDepositOperation should return deposit when exists", () => {
+    const builder = createTestBuilder();
+    builder.addDeposit(mockEd25519Key1, 500n, [mockDepositCondition]);
+
+    const dep = builder.getDepositOperation(mockEd25519Key1);
+    assertEquals(dep?.pubKey, mockEd25519Key1);
+    assertEquals(dep?.amount, 500n);
+    assertEquals(dep?.conditions.length, 1);
+  });
+
+  await t.step("getDepositOperation should return undefined when not found", () => {
+    const builder = createTestBuilder();
+    const dep = builder.getDepositOperation(mockEd25519Key2);
+    assertEquals(dep, undefined);
   });
 });
