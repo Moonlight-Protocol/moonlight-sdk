@@ -1011,3 +1011,297 @@ Deno.test("Transaction Builder Utility Functions", async (t) => {
     assertEquals(!!spendXdr, true);
   });
 });
+
+Deno.test("MoonlightTransactionBuilder - Integration and Edge Cases", async (t) => {
+  await t.step("should build complete transaction with all operation types", async () => {
+    const builder = createTestBuilder();
+    const providerKeypair = Keypair.random();
+    const userKeypair1 = Keypair.random();
+    const userKeypair2 = Keypair.random();
+    const mockUtxo1 = {
+      publicKey: mockUTXO1,
+      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+    };
+    const mockUtxo2 = {
+      publicKey: mockUTXO2,
+      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x43)
+    };
+    const expirationLedger = 1000;
+
+    // Add all types of operations
+    builder
+      .addCreate(mockUTXO1, 1000n)
+      .addCreate(mockUTXO2, 2000n)
+      .addSpend(mockUTXO1, [mockCreateCondition])
+      .addSpend(mockUTXO2, [mockDepositCondition, mockWithdrawCondition])
+      .addDeposit(userKeypair1.publicKey(), 500n, [mockDepositCondition])
+      .addDeposit(userKeypair2.publicKey(), 300n, [mockWithdrawCondition])
+      .addWithdraw(userKeypair1.publicKey(), 200n, [mockWithdrawCondition])
+      .addWithdraw(userKeypair2.publicKey(), 100n, [mockCreateCondition]);
+
+    // Sign with all methods
+    await builder.signWithProvider(providerKeypair, expirationLedger);
+    await builder.signWithSpendUtxo(mockUtxo1, expirationLedger);
+    await builder.signWithSpendUtxo(mockUtxo2, expirationLedger);
+    await builder.signExtWithEd25519(userKeypair1, expirationLedger);
+    await builder.signExtWithEd25519(userKeypair2, expirationLedger);
+
+    // Verify all components work together
+    const operations = builder.getOperation();
+    const signedEntries = builder.getSignedAuthEntries();
+    const xdr = builder.buildXDR();
+    const xdrString = builder.signaturesXDR();
+
+    // Validate operations
+    assertEquals(operations.create.length, 2);
+    assertEquals(operations.spend.length, 2);
+    assertEquals(operations.deposit.length, 2);
+    assertEquals(operations.withdraw.length, 2);
+
+    // Validate signatures
+    assertEquals(Array.isArray(signedEntries), true);
+    assertEquals(signedEntries.length >= 3, true); // Provider + 2 external
+
+    // Validate XDR
+    assertEquals(!!xdr, true);
+    assertEquals(typeof xdrString, "string");
+    assertEquals(xdrString.length > 0, true);
+  });
+
+  await t.step("should handle complex transaction with multiple signatures", async () => {
+    const builder = createTestBuilder();
+    const providerKeypair1 = Keypair.random();
+    const providerKeypair2 = Keypair.random();
+    const userKeypair1 = Keypair.random();
+    const userKeypair2 = Keypair.random();
+    const userKeypair3 = Keypair.random();
+    const expirationLedger = 1000;
+
+    // Add operations - each user keypair needs both deposit and withdraw operations
+    builder
+      .addCreate(mockUTXO1, 1000n)
+      .addSpend(mockUTXO1, [mockCreateCondition])
+      .addDeposit(userKeypair1.publicKey(), 500n, [mockDepositCondition])
+      .addDeposit(userKeypair2.publicKey(), 300n, [mockWithdrawCondition])
+      .addDeposit(userKeypair3.publicKey(), 200n, [mockWithdrawCondition])
+      .addWithdraw(userKeypair1.publicKey(), 200n, [mockWithdrawCondition])
+      .addWithdraw(userKeypair2.publicKey(), 100n, [mockCreateCondition])
+      .addWithdraw(userKeypair3.publicKey(), 150n, [mockDepositCondition]);
+
+    // Add multiple provider signatures
+    await builder.signWithProvider(providerKeypair1, expirationLedger);
+    await builder.signWithProvider(providerKeypair2, expirationLedger);
+
+    // Add multiple external signatures (each keypair has both deposit and withdraw)
+    await builder.signExtWithEd25519(userKeypair1, expirationLedger);
+    await builder.signExtWithEd25519(userKeypair2, expirationLedger);
+    await builder.signExtWithEd25519(userKeypair3, expirationLedger);
+
+    // Verify multiple signatures are handled correctly
+    const signedEntries = builder.getSignedAuthEntries();
+    const xdrString = builder.signaturesXDR();
+
+    assertEquals(Array.isArray(signedEntries), true);
+    assertEquals(signedEntries.length >= 4, true); // 2 providers + 3 external
+    assertEquals(typeof xdrString, "string");
+    assertEquals(xdrString.length > 0, true);
+  });
+
+  await t.step("should validate transaction integrity", async () => {
+    const builder = createTestBuilder();
+    const providerKeypair = Keypair.random();
+    const userKeypair = Keypair.random();
+    const mockUtxo = {
+      publicKey: mockUTXO1,
+      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+    };
+    const expirationLedger = 1000;
+
+    // Build transaction
+    builder
+      .addCreate(mockUTXO1, 1000n)
+      .addSpend(mockUTXO1, [mockCreateCondition])
+      .addDeposit(userKeypair.publicKey(), 500n, [mockDepositCondition]);
+
+    await builder.signWithProvider(providerKeypair, expirationLedger);
+    await builder.signWithSpendUtxo(mockUtxo, expirationLedger);
+    await builder.signExtWithEd25519(userKeypair, expirationLedger);
+
+    // Verify transaction integrity
+    const operations = builder.getOperation();
+    const signedEntries = builder.getSignedAuthEntries();
+    const xdr = builder.buildXDR();
+    const xdrString = builder.signaturesXDR();
+
+    // All components should be consistent
+    assertEquals(operations.create.length, 1);
+    assertEquals(operations.spend.length, 1);
+    assertEquals(operations.deposit.length, 1);
+    assertEquals(operations.withdraw.length, 0);
+
+    assertEquals(Array.isArray(signedEntries), true);
+    assertEquals(signedEntries.length >= 2, true);
+    assertEquals(!!xdr, true);
+    assertEquals(typeof xdrString, "string");
+    assertEquals(xdrString.length > 0, true);
+  });
+
+  await t.step("should handle maximum number of operations", () => {
+    const builder = createTestBuilder();
+    const maxOperations = 10;
+
+    // Add maximum number of each operation type
+    for (let i = 0; i < maxOperations; i++) {
+      const utxo = new Uint8Array([i, i + 1, i + 2, i + 3, i + 4, i + 5, i + 6, i + 7]);
+      const keypair = Keypair.random();
+      
+      builder
+        .addCreate(utxo, BigInt(1000 + i))
+        .addSpend(utxo, [mockCreateCondition])
+        .addDeposit(keypair.publicKey(), BigInt(500 + i), [mockDepositCondition])
+        .addWithdraw(keypair.publicKey(), BigInt(300 + i), [mockWithdrawCondition]);
+    }
+
+    const operations = builder.getOperation();
+    const xdr = builder.buildXDR();
+
+    assertEquals(operations.create.length, maxOperations);
+    assertEquals(operations.spend.length, maxOperations);
+    assertEquals(operations.deposit.length, maxOperations);
+    assertEquals(operations.withdraw.length, maxOperations);
+    assertEquals(!!xdr, true);
+  });
+
+  await t.step("should handle edge cases with zero amounts", () => {
+    const builder = createTestBuilder();
+
+    // These should throw errors for zero amounts
+    assertThrows(
+      () => builder.addCreate(mockUTXO1, 0n),
+      Error,
+      "Create operation amount must be positive"
+    );
+
+    assertThrows(
+      () => builder.addDeposit(mockEd25519Key1, 0n, []),
+      Error,
+      "Deposit operation amount must be positive"
+    );
+
+    assertThrows(
+      () => builder.addWithdraw(mockEd25519Key1, 0n, []),
+      Error,
+      "Withdraw operation amount must be positive"
+    );
+  });
+
+  await t.step("should handle edge cases with negative amounts", () => {
+    const builder = createTestBuilder();
+
+    // These should throw errors for negative amounts
+    assertThrows(
+      () => builder.addCreate(mockUTXO1, -100n),
+      Error,
+      "Create operation amount must be positive"
+    );
+
+    assertThrows(
+      () => builder.addDeposit(mockEd25519Key1, -100n, []),
+      Error,
+      "Deposit operation amount must be positive"
+    );
+
+    assertThrows(
+      () => builder.addWithdraw(mockEd25519Key1, -100n, []),
+      Error,
+      "Withdraw operation amount must be positive"
+    );
+  });
+
+  await t.step("should handle invalid input parameters", () => {
+    const builder = createTestBuilder();
+
+    // Test with empty UTXO array - should work but be a valid UTXO
+    const emptyUtxo = new Uint8Array(8).fill(0);
+    builder.addCreate(emptyUtxo, 1000n);
+    
+    // Try to add the same UTXO again - should throw error
+    assertThrows(
+      () => builder.addCreate(emptyUtxo, 2000n),
+      Error,
+      "Create operation for this UTXO already exists"
+    );
+
+    // Test with empty public key - should work but be a valid key
+    const emptyKey = "G" + "A".repeat(55); // Valid format but empty content
+    builder.addDeposit(emptyKey, 500n, []);
+    
+    // Try to add the same public key again - should throw error
+    assertThrows(
+      () => builder.addDeposit(emptyKey, 1000n, []),
+      Error,
+      "Deposit operation for this public key already exists"
+    );
+  });
+
+  await t.step("should handle concurrent operations", async () => {
+    const builder = createTestBuilder();
+    const providerKeypair = Keypair.random();
+    const userKeypair = Keypair.random();
+    const mockUtxo = {
+      publicKey: mockUTXO1,
+      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+    };
+    const expirationLedger = 1000;
+
+    // Add operations
+    builder
+      .addCreate(mockUTXO1, 1000n)
+      .addSpend(mockUTXO1, [mockCreateCondition])
+      .addDeposit(userKeypair.publicKey(), 500n, [mockDepositCondition]);
+
+    // Sign concurrently (simulate concurrent access)
+    const signingPromises = [
+      builder.signWithProvider(providerKeypair, expirationLedger),
+      builder.signWithSpendUtxo(mockUtxo, expirationLedger),
+      builder.signExtWithEd25519(userKeypair, expirationLedger)
+    ];
+
+    await Promise.all(signingPromises);
+
+    // Verify all signatures were added
+    const signedEntries = builder.getSignedAuthEntries();
+    const xdrString = builder.signaturesXDR();
+
+    assertEquals(Array.isArray(signedEntries), true);
+    assertEquals(signedEntries.length >= 2, true);
+    assertEquals(typeof xdrString, "string");
+    assertEquals(xdrString.length > 0, true);
+  });
+
+  await t.step("should handle large transaction data", () => {
+    const builder = createTestBuilder();
+    const largeAmount = 999999999999999999n; // Very large amount
+    const largeUtxo = new Uint8Array(64).fill(0xFF); // Large UTXO
+    const keypair = Keypair.random();
+
+    // Add operations with large data
+    builder
+      .addCreate(largeUtxo, largeAmount)
+      .addSpend(largeUtxo, [mockCreateCondition, mockDepositCondition, mockWithdrawCondition])
+      .addDeposit(keypair.publicKey(), largeAmount, [mockDepositCondition])
+      .addWithdraw(keypair.publicKey(), largeAmount, [mockWithdrawCondition]);
+
+    const operations = builder.getOperation();
+    const xdr = builder.buildXDR();
+
+    assertEquals(operations.create.length, 1);
+    assertEquals(operations.create[0].amount, largeAmount);
+    assertEquals(operations.spend.length, 1);
+    assertEquals(operations.deposit.length, 1);
+    assertEquals(operations.deposit[0].amount, largeAmount);
+    assertEquals(operations.withdraw.length, 1);
+    assertEquals(operations.withdraw[0].amount, largeAmount);
+    assertEquals(!!xdr, true);
+  });
+});
