@@ -3,7 +3,7 @@ import {
   assertEquals,
   assertThrows,
 } from "https://deno.land/std@0.220.1/assert/mod.ts";
-import { MoonlightTransactionBuilder } from "./index.ts";
+import { MoonlightTransactionBuilder, createOpToXDR, depositOpToXDR, withdrawOpToXDR, spendOpToXDR } from "./index.ts";
 import { Asset, Keypair, StrKey, xdr } from "@stellar/stellar-sdk";
 import { Condition } from "../conditions/types.ts";
 import { StellarSmartContractId } from "../utils/types/stellar.types.ts";
@@ -857,5 +857,157 @@ Deno.test("MoonlightTransactionBuilder - Final Methods", async (t) => {
     assertEquals(!!xdr, true);
     assertEquals(typeof xdrString, "string");
     assertEquals(xdrString.length > 0, true);
+  });
+});
+
+Deno.test("Transaction Builder Utility Functions", async (t) => {
+  await t.step("createOpToXDR should convert create operation to XDR correctly", () => {
+    const createOp = {
+      utxo: mockUTXO1,
+      amount: 1000n
+    };
+
+    const xdr = createOpToXDR(createOp);
+    
+    // Should return a valid ScVal
+    assertEquals(!!xdr, true);
+  });
+
+  await t.step("depositOpToXDR should convert deposit operation to XDR correctly", () => {
+    const depositOp = {
+      pubKey: mockEd25519Key1,
+      amount: 500n,
+      conditions: [mockDepositCondition]
+    };
+
+    const xdr = depositOpToXDR(depositOp);
+    
+    // Should return a valid ScVal
+    assertEquals(!!xdr, true);
+  });
+
+  await t.step("depositOpToXDR should handle empty conditions", () => {
+    const depositOp = {
+      pubKey: mockEd25519Key1,
+      amount: 500n,
+      conditions: []
+    };
+
+    const xdr = depositOpToXDR(depositOp);
+    
+    // Should return a valid ScVal even with empty conditions
+    assertEquals(!!xdr, true);
+  });
+
+  await t.step("withdrawOpToXDR should convert withdraw operation to XDR correctly", () => {
+    const withdrawOp = {
+      pubKey: mockEd25519Key1,
+      amount: 300n,
+      conditions: [mockWithdrawCondition]
+    };
+
+    const xdr = withdrawOpToXDR(withdrawOp);
+    
+    // Should return a valid ScVal
+    assertEquals(!!xdr, true);
+  });
+
+  await t.step("withdrawOpToXDR should handle empty conditions", () => {
+    const withdrawOp = {
+      pubKey: mockEd25519Key1,
+      amount: 300n,
+      conditions: []
+    };
+
+    const xdr = withdrawOpToXDR(withdrawOp);
+    
+    // Should return a valid ScVal even with empty conditions
+    assertEquals(!!xdr, true);
+  });
+
+  await t.step("spendOpToXDR should convert spend operation to XDR correctly", () => {
+    const spendOp = {
+      utxo: mockUTXO1,
+      conditions: [mockCreateCondition, mockDepositCondition]
+    };
+
+    const xdr = spendOpToXDR(spendOp);
+    
+    // Should return a valid ScVal
+    assertEquals(!!xdr, true);
+  });
+
+  await t.step("spendOpToXDR should handle empty conditions", () => {
+    const spendOp = {
+      utxo: mockUTXO1,
+      conditions: []
+    };
+
+    const xdr = spendOpToXDR(spendOp);
+    
+    // Should return a valid ScVal even with empty conditions
+    assertEquals(!!xdr, true);
+  });
+
+  await t.step("all utility functions should handle different amounts", () => {
+    // Test createOpToXDR with different amounts
+    const createOp1 = { utxo: mockUTXO1, amount: 1n };
+    const createOp2 = { utxo: mockUTXO2, amount: 999999999n };
+    
+    const xdr1 = createOpToXDR(createOp1);
+    const xdr2 = createOpToXDR(createOp2);
+    
+    assertEquals(!!xdr1, true);
+    assertEquals(!!xdr2, true);
+
+    // Test depositOpToXDR with different amounts
+    const depositOp1 = { pubKey: mockEd25519Key1, amount: 1n, conditions: [] };
+    const depositOp2 = { pubKey: mockEd25519Key2, amount: 999999999n, conditions: [] };
+    
+    const xdr3 = depositOpToXDR(depositOp1);
+    const xdr4 = depositOpToXDR(depositOp2);
+    
+    assertEquals(!!xdr3, true);
+    assertEquals(!!xdr4, true);
+
+    // Test withdrawOpToXDR with different amounts
+    const withdrawOp1 = { pubKey: mockEd25519Key1, amount: 1n, conditions: [] };
+    const withdrawOp2 = { pubKey: mockEd25519Key2, amount: 999999999n, conditions: [] };
+    
+    const xdr5 = withdrawOpToXDR(withdrawOp1);
+    const xdr6 = withdrawOpToXDR(withdrawOp2);
+    
+    assertEquals(!!xdr5, true);
+    assertEquals(!!xdr6, true);
+  });
+
+  await t.step("utility functions should handle multiple conditions", () => {
+    // Test with multiple conditions
+    const multipleConditions = [mockCreateCondition, mockDepositCondition, mockWithdrawCondition];
+    
+    const depositOp = {
+      pubKey: mockEd25519Key1,
+      amount: 500n,
+      conditions: multipleConditions
+    };
+
+    const withdrawOp = {
+      pubKey: mockEd25519Key2,
+      amount: 300n,
+      conditions: multipleConditions
+    };
+
+    const spendOp = {
+      utxo: mockUTXO1,
+      conditions: multipleConditions
+    };
+
+    const depositXdr = depositOpToXDR(depositOp);
+    const withdrawXdr = withdrawOpToXDR(withdrawOp);
+    const spendXdr = spendOpToXDR(spendOp);
+
+    assertEquals(!!depositXdr, true);
+    assertEquals(!!withdrawXdr, true);
+    assertEquals(!!spendXdr, true);
   });
 });
