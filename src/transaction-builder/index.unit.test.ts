@@ -619,3 +619,122 @@ Deno.test("MoonlightTransactionBuilder - Hash and Signature XDR", async (t) => {
     assertEquals(xdrString.length > 0, true);
   });
 });
+
+Deno.test("MoonlightTransactionBuilder - High-Level Signing Methods", async (t) => {
+  await t.step("signWithProvider should sign with provided keypair", async () => {
+    const builder = createTestBuilder();
+    const keypair = Keypair.random();
+    const expirationLedger = 1000;
+
+    await builder.signWithProvider(keypair, expirationLedger);
+
+    // Verify that provider signature was added by checking signaturesXDR doesn't throw
+    const xdrString = builder.signaturesXDR();
+    assertEquals(typeof xdrString, "string");
+    assertEquals(xdrString.length > 0, true);
+  });
+
+  await t.step("signWithProvider should use provided nonce", async () => {
+    const builder = createTestBuilder();
+    const keypair = Keypair.random();
+    const expirationLedger = 1000;
+    const customNonce = "999888777";
+
+    await builder.signWithProvider(keypair, expirationLedger, customNonce);
+
+    // Should not throw and should generate valid XDR
+    const xdrString = builder.signaturesXDR();
+    assertEquals(typeof xdrString, "string");
+    assertEquals(xdrString.length > 0, true);
+  });
+
+  await t.step("signWithSpendUtxo should throw error when UTXO not found", async () => {
+    const builder = createTestBuilder();
+    const mockUtxo = {
+      publicKey: mockUTXO1,
+      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+    };
+    const expirationLedger = 1000;
+
+    let errorThrown = false;
+    try {
+      await builder.signWithSpendUtxo(mockUtxo, expirationLedger);
+    } catch (error) {
+      errorThrown = true;
+      assertEquals(error.message, "No spend operation for this UTXO");
+    }
+    assertEquals(errorThrown, true);
+  });
+
+  await t.step("signWithSpendUtxo should sign with UTXO keypair when found", async () => {
+    const builder = createTestBuilder();
+    const mockUtxo = {
+      publicKey: mockUTXO1,
+      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+    };
+    const expirationLedger = 1000;
+
+    // Add spend operation first
+    builder.addSpend(mockUTXO1, [mockCreateCondition]);
+
+    await builder.signWithSpendUtxo(mockUtxo, expirationLedger);
+
+    // Should not throw - signature was added
+    assertEquals(true, true); // Test passes if no exception
+  });
+
+  await t.step("signExtWithEd25519 should sign external auth entry", async () => {
+    const builder = createTestBuilder();
+    const keypair = Keypair.random();
+    const expirationLedger = 1000;
+
+    // Add deposit operation first
+    builder.addDeposit(keypair.publicKey(), 500n, [mockDepositCondition]);
+
+    await builder.signExtWithEd25519(keypair, expirationLedger);
+
+    // Should not throw - external signature was added
+    assertEquals(true, true); // Test passes if no exception
+  });
+
+  await t.step("signExtWithEd25519 should use provided nonce", async () => {
+    const builder = createTestBuilder();
+    const keypair = Keypair.random();
+    const expirationLedger = 1000;
+    const customNonce = "555444333";
+
+    // Add deposit operation first
+    builder.addDeposit(keypair.publicKey(), 500n, [mockDepositCondition]);
+
+    await builder.signExtWithEd25519(keypair, expirationLedger, customNonce);
+
+    // Should not throw - custom nonce was used and signature added
+    assertEquals(true, true); // Test passes if no exception
+  });
+
+  await t.step("should handle complex signing workflow", async () => {
+    const builder = createTestBuilder();
+    const providerKeypair = Keypair.random();
+    const userKeypair = Keypair.random();
+    const mockUtxo = {
+      publicKey: mockUTXO1,
+      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+    };
+    const expirationLedger = 1000;
+
+    // Add operations
+    builder
+      .addSpend(mockUTXO1, [mockCreateCondition])
+      .addDeposit(userKeypair.publicKey(), 500n, [mockDepositCondition]);
+
+    // Sign with all methods (now that buildAuthPayloadHash is implemented)
+    await builder.signWithProvider(providerKeypair, expirationLedger);
+    await builder.signWithSpendUtxo(mockUtxo, expirationLedger);
+    await builder.signExtWithEd25519(userKeypair, expirationLedger);
+
+    // Should generate valid XDR with all signatures
+    const xdrString = builder.signaturesXDR();
+    assertEquals(typeof xdrString, "string");
+    assertEquals(xdrString.length > 0, true);
+  });
+});

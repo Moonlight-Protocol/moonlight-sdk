@@ -16,6 +16,8 @@ import { generateDepositAuthEntry } from "../utils/auth/deposit-auth-entry.ts";
 import { generateBundleAuthEntry } from "../utils/auth/bundle-auth-entry.ts";
 import { conditionToXDR } from "../conditions/index.ts";
 import { MoonlightOperation } from "../transaction-builder/types.ts";
+import { buildAuthPayloadHash } from "../utils/auth/build-auth-payload.ts";
+import { IUTXOKeypairBase } from "../core/utxo-keypair-base/types.ts";
 
 export const createOpToXDR = (op: CreateOperation): xdr.ScVal => {
   return xdr.ScVal.scvVec([
