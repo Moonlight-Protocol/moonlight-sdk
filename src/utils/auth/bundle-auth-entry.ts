@@ -1,10 +1,8 @@
 import { xdr } from "@stellar/stellar-sdk";
-import { InvocationParams, paramsToAuthEntry } from "./auth-entries.ts";
-
+import { type InvocationParams, paramsToAuthEntry } from "./auth-entries.ts";
 
 export const generateBundleAuthEntry = ({
   channelId,
-
   authId,
   args,
   nonce,
@@ -12,7 +10,6 @@ export const generateBundleAuthEntry = ({
   signaturesXdr,
 }: {
   channelId: string;
-
   authId: string;
   args: xdr.ScVal[];
   nonce: string;

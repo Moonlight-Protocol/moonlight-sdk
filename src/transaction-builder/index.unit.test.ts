@@ -2,25 +2,27 @@
 import {
   assertEquals,
   assertThrows,
-} from "https://deno.land/std@0.220.1/assert/mod.ts";
-import { MoonlightTransactionBuilder, createOpToXDR, depositOpToXDR, withdrawOpToXDR, spendOpToXDR } from "./index.ts";
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { MoonlightTransactionBuilder } from "./index.ts";
+import { createOpToXDR, depositOpToXDR, withdrawOpToXDR, spendOpToXDR } from "./xdr/index.ts";
 import { Asset, Keypair, StrKey, xdr } from "@stellar/stellar-sdk";
+import { Buffer } from "buffer";
 import { Condition } from "../conditions/types.ts";
 import { StellarSmartContractId } from "../utils/types/stellar.types.ts";
 
 // Mock data for testing
-const mockChannelId: StellarSmartContractId = StrKey.encodeContract(new Uint8Array(32)) as StellarSmartContractId;
-const mockAuthId: StellarSmartContractId = StrKey.encodeContract(new Uint8Array(32).fill(1)) as StellarSmartContractId;
+const mockChannelId: StellarSmartContractId = StrKey.encodeContract(Buffer.alloc(32)) as StellarSmartContractId;
+const mockAuthId: StellarSmartContractId = StrKey.encodeContract(Buffer.alloc(32, 1)) as StellarSmartContractId;
 const mockNetwork = "testnet";
 const mockAsset = Asset.native();
 
 // Mock UTXO data
-const mockUTXO1 = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
-const mockUTXO2 = new Uint8Array([9, 10, 11, 12, 13, 14, 15, 16]);
+const mockUTXO1 = Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]);
+const mockUTXO2 = Buffer.from([9, 10, 11, 12, 13, 14, 15, 16]);
 
 // Mock Ed25519 public keys
-const mockEd25519Key1 = Keypair.random().publicKey();
-const mockEd25519Key2 = Keypair.random().publicKey();
+const mockEd25519Key1 = Keypair.random().publicKey() as `G${string}`;
+const mockEd25519Key2 = Keypair.random().publicKey() as `G${string}`;
 
 // Mock conditions
 const mockCreateCondition: Condition = {
@@ -272,7 +274,7 @@ Deno.test("MoonlightTransactionBuilder - Basic Operations (Add Methods)", async 
 Deno.test("MoonlightTransactionBuilder - Internal Signatures", async (t) => {
   await t.step("addInnerSignature should add signature for existing spend operation", () => {
     const builder = createTestBuilder();
-    const mockSignature = new Uint8Array(64).fill(0x42);
+    const mockSignature = Buffer.alloc(64, 0x42);
     const expirationLedger = 1000;
     
     // First add a spend operation
@@ -290,7 +292,7 @@ Deno.test("MoonlightTransactionBuilder - Internal Signatures", async (t) => {
 
   await t.step("addInnerSignature should throw error when UTXO not found in spend operations", () => {
     const builder = createTestBuilder();
-    const mockSignature = new Uint8Array(64).fill(0x42);
+    const mockSignature = Buffer.alloc(64, 0x42);
     const expirationLedger = 1000;
     
     // Don't add any spend operations
@@ -305,7 +307,7 @@ Deno.test("MoonlightTransactionBuilder - Internal Signatures", async (t) => {
 
   await t.step("addProviderInnerSignature should add provider signature", () => {
     const builder = createTestBuilder();
-    const mockSignature = new Uint8Array(64).fill(0x43);
+    const mockSignature = Buffer.alloc(64, 0x43);
     const expirationLedger = 1000;
     const nonce = "123456789";
     
@@ -371,7 +373,7 @@ Deno.test("MoonlightTransactionBuilder - Internal Signatures", async (t) => {
 
   await t.step("should allow chaining signature operations", () => {
     const builder = createTestBuilder();
-    const mockSignature = new Uint8Array(64).fill(0x44);
+    const mockSignature = Buffer.alloc(64, 0x44);
     const mockAuthEntry = {} as xdr.SorobanAuthorizationEntry;
     
     // Add operations first
@@ -392,8 +394,8 @@ Deno.test("MoonlightTransactionBuilder - Internal Signatures", async (t) => {
 
   await t.step("should handle multiple provider signatures", () => {
     const builder = createTestBuilder();
-    const mockSignature1 = new Uint8Array(64).fill(0x45);
-    const mockSignature2 = new Uint8Array(64).fill(0x46);
+    const mockSignature1 = Buffer.alloc(64, 0x45);
+    const mockSignature2 = Buffer.alloc(64, 0x46);
     
     const result = builder
       .addProviderInnerSignature(mockEd25519Key1, mockSignature1, 1000, "nonce1")
@@ -408,8 +410,8 @@ Deno.test("MoonlightTransactionBuilder - Internal Signatures", async (t) => {
 
   await t.step("should handle multiple inner signatures for different UTXOs", () => {
     const builder = createTestBuilder();
-    const mockSignature1 = new Uint8Array(64).fill(0x47);
-    const mockSignature2 = new Uint8Array(64).fill(0x48);
+    const mockSignature1 = Buffer.alloc(64, 0x47);
+    const mockSignature2 = Buffer.alloc(64, 0x48);
     
     // Add spend operations for different UTXOs
     builder.addSpend(mockUTXO1, [mockCreateCondition]);
@@ -576,7 +578,7 @@ Deno.test("MoonlightTransactionBuilder - Hash and Signature XDR", async (t) => {
 
   await t.step("signaturesXDR should return correct XDR format", () => {
     const builder = createTestBuilder();
-    const mockSignature = new Uint8Array(64).fill(0x42);
+    const mockSignature = Buffer.alloc(64, 0x42);
 
     // Add provider signature
     builder.addProviderInnerSignature(mockEd25519Key1, mockSignature, 1000, "nonce123");
@@ -589,8 +591,8 @@ Deno.test("MoonlightTransactionBuilder - Hash and Signature XDR", async (t) => {
 
   await t.step("signaturesXDR should order signatures correctly", () => {
     const builder = createTestBuilder();
-    const mockSignature1 = new Uint8Array(64).fill(0x42);
-    const mockSignature2 = new Uint8Array(64).fill(0x43);
+    const mockSignature1 = Buffer.alloc(64, 0x42);
+    const mockSignature2 = Buffer.alloc(64, 0x43);
 
     // Add provider signatures in reverse order
     builder
@@ -605,7 +607,7 @@ Deno.test("MoonlightTransactionBuilder - Hash and Signature XDR", async (t) => {
 
   await t.step("signaturesXDR should handle both provider and spend signatures", () => {
     const builder = createTestBuilder();
-    const mockSignature = new Uint8Array(64).fill(0x44);
+    const mockSignature = Buffer.alloc(64, 0x44);
 
     // Add spend operation and signatures
     builder
@@ -652,7 +654,8 @@ Deno.test("MoonlightTransactionBuilder - High-Level Signing Methods", async (t) 
     const builder = createTestBuilder();
     const mockUtxo = {
       publicKey: mockUTXO1,
-      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+      privateKey: Buffer.alloc(32, 0x01),
+      signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42)
     };
     const expirationLedger = 1000;
 
@@ -661,7 +664,7 @@ Deno.test("MoonlightTransactionBuilder - High-Level Signing Methods", async (t) 
       await builder.signWithSpendUtxo(mockUtxo, expirationLedger);
     } catch (error) {
       errorThrown = true;
-      assertEquals(error.message, "No spend operation for this UTXO");
+      assertEquals((error as Error).message, "No spend operation for this UTXO");
     }
     assertEquals(errorThrown, true);
   });
@@ -670,7 +673,8 @@ Deno.test("MoonlightTransactionBuilder - High-Level Signing Methods", async (t) 
     const builder = createTestBuilder();
     const mockUtxo = {
       publicKey: mockUTXO1,
-      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+      privateKey: Buffer.alloc(32, 0x01),
+      signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42)
     };
     const expirationLedger = 1000;
 
@@ -689,7 +693,7 @@ Deno.test("MoonlightTransactionBuilder - High-Level Signing Methods", async (t) 
     const expirationLedger = 1000;
 
     // Add deposit operation first
-    builder.addDeposit(keypair.publicKey(), 500n, [mockDepositCondition]);
+    builder.addDeposit(keypair.publicKey() as `G${string}`, 500n, [mockDepositCondition]);
 
     await builder.signExtWithEd25519(keypair, expirationLedger);
 
@@ -704,7 +708,7 @@ Deno.test("MoonlightTransactionBuilder - High-Level Signing Methods", async (t) 
     const customNonce = "555444333";
 
     // Add deposit operation first
-    builder.addDeposit(keypair.publicKey(), 500n, [mockDepositCondition]);
+    builder.addDeposit(keypair.publicKey() as `G${string}`, 500n, [mockDepositCondition]);
 
     await builder.signExtWithEd25519(keypair, expirationLedger, customNonce);
 
@@ -718,14 +722,15 @@ Deno.test("MoonlightTransactionBuilder - High-Level Signing Methods", async (t) 
     const userKeypair = Keypair.random();
     const mockUtxo = {
       publicKey: mockUTXO1,
-      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+      privateKey: Buffer.alloc(32, 0x01),
+      signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42)
     };
     const expirationLedger = 1000;
 
     // Add operations
     builder
       .addSpend(mockUTXO1, [mockCreateCondition])
-      .addDeposit(userKeypair.publicKey(), 500n, [mockDepositCondition]);
+      .addDeposit(userKeypair.publicKey() as `G${string}`, 500n, [mockDepositCondition]);
 
     // Sign with all methods (now that buildAuthPayloadHash is implemented)
     await builder.signWithProvider(providerKeypair, expirationLedger);
@@ -747,7 +752,7 @@ Deno.test("MoonlightTransactionBuilder - Final Methods", async (t) => {
     const expirationLedger = 1000;
 
     // Add operations and sign
-    builder.addDeposit(userKeypair.publicKey(), 500n, [mockDepositCondition]);
+    builder.addDeposit(userKeypair.publicKey() as `G${string}`, 500n, [mockDepositCondition]);
     await builder.signWithProvider(providerKeypair, expirationLedger);
     await builder.signExtWithEd25519(userKeypair, expirationLedger);
 
@@ -765,7 +770,7 @@ Deno.test("MoonlightTransactionBuilder - Final Methods", async (t) => {
     const expirationLedger = 1000;
 
     // Add operations and sign
-    builder.addDeposit(userKeypair.publicKey(), 500n, [mockDepositCondition]);
+    builder.addDeposit(userKeypair.publicKey() as `G${string}`, 500n, [mockDepositCondition]);
     await builder.signWithProvider(providerKeypair, expirationLedger);
     await builder.signExtWithEd25519(userKeypair, expirationLedger);
 
@@ -830,7 +835,8 @@ Deno.test("MoonlightTransactionBuilder - Final Methods", async (t) => {
     const userKeypair = Keypair.random();
     const mockUtxo = {
       publicKey: mockUTXO1,
-      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+      privateKey: Buffer.alloc(32, 0x01),
+      signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42)
     };
     const expirationLedger = 1000;
 
@@ -838,8 +844,8 @@ Deno.test("MoonlightTransactionBuilder - Final Methods", async (t) => {
     builder
       .addCreate(mockUTXO1, 1000n)
       .addSpend(mockUTXO1, [mockCreateCondition])
-      .addDeposit(userKeypair.publicKey(), 500n, [mockDepositCondition])
-      .addWithdraw(userKeypair.publicKey(), 200n, [mockWithdrawCondition]);
+      .addDeposit(userKeypair.publicKey() as `G${string}`, 500n, [mockDepositCondition])
+      .addWithdraw(userKeypair.publicKey() as `G${string}`, 200n, [mockWithdrawCondition]);
 
     // Sign with all methods
     await builder.signWithProvider(providerKeypair, expirationLedger);
@@ -1020,11 +1026,13 @@ Deno.test("MoonlightTransactionBuilder - Integration and Edge Cases", async (t) 
     const userKeypair2 = Keypair.random();
     const mockUtxo1 = {
       publicKey: mockUTXO1,
-      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+      privateKey: Buffer.alloc(32, 0x01),
+      signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42)
     };
     const mockUtxo2 = {
       publicKey: mockUTXO2,
-      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x43)
+      privateKey: Buffer.alloc(32, 0x02),
+      signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x43)
     };
     const expirationLedger = 1000;
 
@@ -1034,10 +1042,10 @@ Deno.test("MoonlightTransactionBuilder - Integration and Edge Cases", async (t) 
       .addCreate(mockUTXO2, 2000n)
       .addSpend(mockUTXO1, [mockCreateCondition])
       .addSpend(mockUTXO2, [mockDepositCondition, mockWithdrawCondition])
-      .addDeposit(userKeypair1.publicKey(), 500n, [mockDepositCondition])
-      .addDeposit(userKeypair2.publicKey(), 300n, [mockWithdrawCondition])
-      .addWithdraw(userKeypair1.publicKey(), 200n, [mockWithdrawCondition])
-      .addWithdraw(userKeypair2.publicKey(), 100n, [mockCreateCondition]);
+      .addDeposit(userKeypair1.publicKey() as `G${string}`, 500n, [mockDepositCondition])
+      .addDeposit(userKeypair2.publicKey() as `G${string}`, 300n, [mockWithdrawCondition])
+      .addWithdraw(userKeypair1.publicKey() as `G${string}`, 200n, [mockWithdrawCondition])
+      .addWithdraw(userKeypair2.publicKey() as `G${string}`, 100n, [mockCreateCondition]);
 
     // Sign with all methods
     await builder.signWithProvider(providerKeypair, expirationLedger);
@@ -1081,12 +1089,12 @@ Deno.test("MoonlightTransactionBuilder - Integration and Edge Cases", async (t) 
     builder
       .addCreate(mockUTXO1, 1000n)
       .addSpend(mockUTXO1, [mockCreateCondition])
-      .addDeposit(userKeypair1.publicKey(), 500n, [mockDepositCondition])
-      .addDeposit(userKeypair2.publicKey(), 300n, [mockWithdrawCondition])
-      .addDeposit(userKeypair3.publicKey(), 200n, [mockWithdrawCondition])
-      .addWithdraw(userKeypair1.publicKey(), 200n, [mockWithdrawCondition])
-      .addWithdraw(userKeypair2.publicKey(), 100n, [mockCreateCondition])
-      .addWithdraw(userKeypair3.publicKey(), 150n, [mockDepositCondition]);
+      .addDeposit(userKeypair1.publicKey() as `G${string}`, 500n, [mockDepositCondition])
+      .addDeposit(userKeypair2.publicKey() as `G${string}`, 300n, [mockWithdrawCondition])
+      .addDeposit(userKeypair3.publicKey() as `G${string}`, 200n, [mockWithdrawCondition])
+      .addWithdraw(userKeypair1.publicKey() as `G${string}`, 200n, [mockWithdrawCondition])
+      .addWithdraw(userKeypair2.publicKey() as `G${string}`, 100n, [mockCreateCondition])
+      .addWithdraw(userKeypair3.publicKey() as `G${string}`, 150n, [mockDepositCondition]);
 
     // Add multiple provider signatures
     await builder.signWithProvider(providerKeypair1, expirationLedger);
@@ -1113,7 +1121,8 @@ Deno.test("MoonlightTransactionBuilder - Integration and Edge Cases", async (t) 
     const userKeypair = Keypair.random();
     const mockUtxo = {
       publicKey: mockUTXO1,
-      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+      privateKey: Buffer.alloc(32, 0x01),
+      signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42)
     };
     const expirationLedger = 1000;
 
@@ -1121,7 +1130,7 @@ Deno.test("MoonlightTransactionBuilder - Integration and Edge Cases", async (t) 
     builder
       .addCreate(mockUTXO1, 1000n)
       .addSpend(mockUTXO1, [mockCreateCondition])
-      .addDeposit(userKeypair.publicKey(), 500n, [mockDepositCondition]);
+      .addDeposit(userKeypair.publicKey() as `G${string}`, 500n, [mockDepositCondition]);
 
     await builder.signWithProvider(providerKeypair, expirationLedger);
     await builder.signWithSpendUtxo(mockUtxo, expirationLedger);
@@ -1158,8 +1167,8 @@ Deno.test("MoonlightTransactionBuilder - Integration and Edge Cases", async (t) 
       builder
         .addCreate(utxo, BigInt(1000 + i))
         .addSpend(utxo, [mockCreateCondition])
-        .addDeposit(keypair.publicKey(), BigInt(500 + i), [mockDepositCondition])
-        .addWithdraw(keypair.publicKey(), BigInt(300 + i), [mockWithdrawCondition]);
+        .addDeposit(keypair.publicKey() as `G${string}`, BigInt(500 + i), [mockDepositCondition])
+        .addWithdraw(keypair.publicKey() as `G${string}`, BigInt(300 + i), [mockWithdrawCondition]);
     }
 
     const operations = builder.getOperation();
@@ -1233,7 +1242,7 @@ Deno.test("MoonlightTransactionBuilder - Integration and Edge Cases", async (t) 
     );
 
     // Test with empty public key - should work but be a valid key
-    const emptyKey = "G" + "A".repeat(55); // Valid format but empty content
+    const emptyKey = ("G" + "A".repeat(55)) as `G${string}`; // Valid format but empty content
     builder.addDeposit(emptyKey, 500n, []);
     
     // Try to add the same public key again - should throw error
@@ -1250,7 +1259,8 @@ Deno.test("MoonlightTransactionBuilder - Integration and Edge Cases", async (t) 
     const userKeypair = Keypair.random();
     const mockUtxo = {
       publicKey: mockUTXO1,
-      signPayload: async (payload: Uint8Array) => new Uint8Array(64).fill(0x42)
+      privateKey: Buffer.alloc(32, 0x01),
+      signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42)
     };
     const expirationLedger = 1000;
 
@@ -1258,7 +1268,7 @@ Deno.test("MoonlightTransactionBuilder - Integration and Edge Cases", async (t) 
     builder
       .addCreate(mockUTXO1, 1000n)
       .addSpend(mockUTXO1, [mockCreateCondition])
-      .addDeposit(userKeypair.publicKey(), 500n, [mockDepositCondition]);
+      .addDeposit(userKeypair.publicKey() as `G${string}`, 500n, [mockDepositCondition]);
 
     // Sign concurrently (simulate concurrent access)
     const signingPromises = [
@@ -1289,8 +1299,8 @@ Deno.test("MoonlightTransactionBuilder - Integration and Edge Cases", async (t) 
     builder
       .addCreate(largeUtxo, largeAmount)
       .addSpend(largeUtxo, [mockCreateCondition, mockDepositCondition, mockWithdrawCondition])
-      .addDeposit(keypair.publicKey(), largeAmount, [mockDepositCondition])
-      .addWithdraw(keypair.publicKey(), largeAmount, [mockWithdrawCondition]);
+      .addDeposit(keypair.publicKey() as `G${string}`, largeAmount, [mockDepositCondition])
+      .addWithdraw(keypair.publicKey() as `G${string}`, largeAmount, [mockWithdrawCondition]);
 
     const operations = builder.getOperation();
     const xdr = builder.buildXDR();

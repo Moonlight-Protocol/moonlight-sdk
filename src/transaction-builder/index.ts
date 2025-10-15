@@ -1,59 +1,23 @@
 import {
   Asset,
   authorizeEntry,
-  hash,
   Keypair,
-  StrKey,
   xdr,
-  nativeToScVal,
 } from "@stellar/stellar-sdk";
+import { Buffer } from "buffer";
 import { CreateOperation, DepositOperation, SpendOperation, WithdrawOperation, UTXOPublicKey, Ed25519PublicKey } from "../transaction-builder/types.ts";
 import { StellarSmartContractId } from "../utils/types/stellar.types.ts";
 import { Condition } from "../conditions/types.ts";
-import { sha256Buffer } from "../utils/hash/sha256Buffer.ts";
 import { generateNonce } from "../utils/common/index.ts";
-import { generateDepositAuthEntry } from "../utils/auth/deposit-auth-entry.ts";
-import { generateBundleAuthEntry } from "../utils/auth/bundle-auth-entry.ts";
 import { conditionToXDR } from "../conditions/index.ts";
 import { MoonlightOperation } from "../transaction-builder/types.ts";
 import { buildAuthPayloadHash } from "../utils/auth/build-auth-payload.ts";
 import { IUTXOKeypairBase } from "../core/utxo-keypair-base/types.ts";
-
-export const createOpToXDR = (op: CreateOperation): xdr.ScVal => {
-  return xdr.ScVal.scvVec([
-    xdr.ScVal.scvBytes(Buffer.from(op.utxo as Uint8Array)),
-    nativeToScVal(op.amount, { type: "i128" }),
-  ]);
-};
-
-export const depositOpToXDR = (op: DepositOperation): xdr.ScVal => {
-  return xdr.ScVal.scvVec([
-    nativeToScVal(op.pubKey, { type: "address" }),
-    nativeToScVal(op.amount, { type: "i128" }),
-    op.conditions.length === 0
-      ? xdr.ScVal.scvVec(null)
-      : xdr.ScVal.scvVec(op.conditions.map((c) => conditionToXDR(c))),
-  ]);
-};
-
-export const withdrawOpToXDR = (op: WithdrawOperation): xdr.ScVal => {
-  return xdr.ScVal.scvVec([
-    nativeToScVal(op.pubKey, { type: "address" }),
-    nativeToScVal(op.amount, { type: "i128" }),
-    op.conditions.length === 0
-      ? xdr.ScVal.scvVec(null)
-      : xdr.ScVal.scvVec(op.conditions.map((c) => conditionToXDR(c))),
-  ]);
-};
-
-export const spendOpToXDR = (op: SpendOperation): xdr.ScVal => {
-  return xdr.ScVal.scvVec([
-    xdr.ScVal.scvBytes(Buffer.from(op.utxo as Uint8Array)),
-    op.conditions.length === 0
-      ? xdr.ScVal.scvVec(null)
-      : xdr.ScVal.scvVec(op.conditions.map((c) => conditionToXDR(c))),
-  ]);
-};
+import { createOpToXDR, depositOpToXDR, withdrawOpToXDR, spendOpToXDR } from "./xdr/index.ts";
+import { buildSignaturesXDR } from "./signatures/index.ts";
+import { buildBundleAuthEntry, buildDepositAuthEntry, buildOperationAuthEntryHash } from "./auth/index.ts";
+import { orderSpendByUtxo } from "./utils/index.ts";
+import { assertPositiveAmount, assertNoDuplicateCreate, assertNoDuplicateSpend, assertNoDuplicatePubKey, assertSpendExists } from "./validators/index.ts";
 
 export class MoonlightTransactionBuilder {
   private create: CreateOperation[] = [];
@@ -66,11 +30,11 @@ export class MoonlightTransactionBuilder {
   private network: string;
   private innerSignatures: Map<
     Uint8Array,
-    { sig: Buffer<ArrayBufferLike>; exp: number }
+    { sig: Buffer; exp: number }
   > = new Map();
   private providerInnerSignatures: Map<
     Ed25519PublicKey,
-    { sig: Buffer<ArrayBufferLike>; exp: number; nonce: string }
+    { sig: Buffer; exp: number; nonce: string }
   > = new Map();
   private extSignatures: Map<Ed25519PublicKey, xdr.SorobanAuthorizationEntry> =
     new Map();
@@ -93,19 +57,15 @@ export class MoonlightTransactionBuilder {
   }
 
   addCreate(utxo: UTXOPublicKey, amount: bigint) {
-    if (this.create.find((c) => Buffer.from(c.utxo).equals(Buffer.from(utxo))))
-      throw new Error("Create operation for this UTXO already exists");
-
-    if (amount <= 0n)
-      throw new Error("Create operation amount must be positive");
+    assertNoDuplicateCreate(this.create, utxo);
+    assertPositiveAmount(amount, "Create operation");
 
     this.create.push({ utxo, amount });
     return this;
   }
 
   addSpend(utxo: UTXOPublicKey, conditions: Condition[]) {
-    if (this.spend.find((s) => Buffer.from(s.utxo).equals(Buffer.from(utxo))))
-      throw new Error("Spend operation for this UTXO already exists");
+    assertNoDuplicateSpend(this.spend, utxo);
 
     this.spend.push({ utxo, conditions });
     return this;
@@ -116,11 +76,8 @@ export class MoonlightTransactionBuilder {
     amount: bigint,
     conditions: Condition[]
   ) {
-    if (this.deposit.find((d) => d.pubKey === pubKey))
-      throw new Error("Deposit operation for this public key already exists");
-
-    if (amount <= 0n)
-      throw new Error("Deposit operation amount must be positive");
+    assertNoDuplicatePubKey(this.deposit, pubKey, "Deposit");
+    assertPositiveAmount(amount, "Deposit operation");
 
     this.deposit.push({ pubKey, amount, conditions });
     return this;
@@ -131,11 +88,8 @@ export class MoonlightTransactionBuilder {
     amount: bigint,
     conditions: Condition[]
   ) {
-    if (this.withdraw.find((d) => d.pubKey === pubKey))
-      throw new Error("Withdraw operation for this public key already exists");
-
-    if (amount <= 0n)
-      throw new Error("Withdraw operation amount must be positive");
+    assertNoDuplicatePubKey(this.withdraw, pubKey, "Withdraw");
+    assertPositiveAmount(amount, "Withdraw operation");
 
     this.withdraw.push({ pubKey, amount, conditions });
     return this;
@@ -143,11 +97,10 @@ export class MoonlightTransactionBuilder {
 
   addInnerSignature(
     utxo: UTXOPublicKey,
-    signature: Buffer<ArrayBufferLike>,
+    signature: Buffer,
     expirationLedger: number
   ) {
-    if (!this.spend.find((s) => Buffer.from(s.utxo).equals(Buffer.from(utxo))))
-      throw new Error("No spend operation for this UTXO");
+    assertSpendExists(this.spend, utxo);
 
     this.innerSignatures.set(utxo, { sig: signature, exp: expirationLedger });
     return this;
@@ -155,7 +108,7 @@ export class MoonlightTransactionBuilder {
 
   addProviderInnerSignature(
     pubKey: Ed25519PublicKey,
-    signature: Buffer<ArrayBufferLike>,
+    signature: Buffer,
     expirationLedger: number,
     nonce: string
   ) {
@@ -204,7 +157,7 @@ export class MoonlightTransactionBuilder {
     const deposit = this.getDepositOperation(address);
     if (!deposit) throw new Error("No deposit operation for this address");
 
-    return generateDepositAuthEntry({
+    return buildDepositAuthEntry({
       channelId: this.channelId,
       assetId: this.asset.contractId(this.network),
       depositor: address,
@@ -220,9 +173,7 @@ export class MoonlightTransactionBuilder {
 
     const signers: xdr.ScMapEntry[] = [];
 
-    const orderedSpend = this.spend.sort((a, b) =>
-      Buffer.from(a.utxo).compare(Buffer.from(b.utxo))
-    );
+    const orderedSpend = orderSpendByUtxo(this.spend);
 
     for (const spend of orderedSpend) {
       signers.push(
@@ -246,7 +197,7 @@ export class MoonlightTransactionBuilder {
   ): xdr.SorobanAuthorizationEntry {
     const reqArgs: xdr.ScVal[] = this.getAuthRequirementArgs();
 
-    return generateBundleAuthEntry({
+    return buildBundleAuthEntry({
       channelId: this.channelId,
       authId: this.authId,
       args: reqArgs,
@@ -267,7 +218,7 @@ export class MoonlightTransactionBuilder {
 
     const reqArgs: xdr.ScVal[] = this.getAuthRequirementArgs();
 
-    return generateBundleAuthEntry({
+    return buildBundleAuthEntry({
       channelId: this.channelId,
       authId: this.authId,
       args: reqArgs,
@@ -281,89 +232,29 @@ export class MoonlightTransactionBuilder {
     nonce: string,
     signatureExpirationLedger: number
   ): Promise<Buffer> {
-    const networkId = hash(Buffer.from(this.network));
-
     const rootInvocation = this.getOperationAuthEntry(
       nonce,
       signatureExpirationLedger
     ).rootInvocation();
-
-    const bundleHashPreImageInner = new xdr.HashIdPreimageSorobanAuthorization({
-      networkId: networkId,
-      nonce: xdr.Int64.fromString(nonce),
+    return buildOperationAuthEntryHash({
+      network: this.network,
+      rootInvocation,
+      nonce,
       signatureExpirationLedger,
-      invocation: rootInvocation,
     });
-
-    const bundleHashPreImage =
-      xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
-        bundleHashPreImageInner
-      );
-
-    const xdrPayload = bundleHashPreImage.toXDR();
-
-    // Get the XDR buffer and hash it
-    return Buffer.from(await sha256Buffer(xdrPayload));
   }
 
   signaturesXDR(): string {
     const providerSigners = Array.from(this.providerInnerSignatures.keys());
-    const spendSigners = Array.from(this.innerSignatures.keys());
+    if (providerSigners.length === 0) throw new Error("No Provider signatures added");
 
-    const ortderedProviderSigners = providerSigners.sort((a, b) =>
-      a.localeCompare(b)
-    );
-    const orderedSpendSigners = spendSigners.sort((a, b) =>
-      Buffer.from(a).compare(Buffer.from(b))
-    );
+    const spendSigs = Array.from(this.innerSignatures.entries()).map(([utxo, { sig, exp }]) => ({ utxo, sig, exp }));
+    const providerSigs = providerSigners.map((pk) => {
+      const { sig, exp } = this.providerInnerSignatures.get(pk)!;
+      return { pubKey: pk, sig, exp };
+    });
 
-    if (ortderedProviderSigners.length === 0) {
-      throw new Error("No Provider signatures added");
-    }
-
-    // MAPs must always be ordered by key so here it is providers -> P256 and each one ordered by pk
-    const signatures = xdr.ScVal.scvVec([
-      xdr.ScVal.scvMap([
-        ...orderedSpendSigners.map((utxo) => {
-          const { sig, exp } = this.innerSignatures.get(utxo)!;
-
-          return new xdr.ScMapEntry({
-            key: xdr.ScVal.scvVec([
-              xdr.ScVal.scvSymbol("P256"),
-              xdr.ScVal.scvBytes(Buffer.from(utxo)),
-            ]),
-            val: xdr.ScVal.scvVec([
-              xdr.ScVal.scvVec([
-                xdr.ScVal.scvSymbol("P256"),
-                xdr.ScVal.scvBytes(sig),
-              ]),
-
-              xdr.ScVal.scvU32(exp),
-            ]),
-          });
-        }),
-        ...ortderedProviderSigners.map((pk) => {
-          const { sig, exp } = this.providerInnerSignatures.get(pk)!;
-
-          return new xdr.ScMapEntry({
-            key: xdr.ScVal.scvVec([
-              xdr.ScVal.scvSymbol("Provider"),
-              xdr.ScVal.scvBytes(StrKey.decodeEd25519PublicKey(pk)),
-            ]),
-            val: xdr.ScVal.scvVec([
-              xdr.ScVal.scvVec([
-                xdr.ScVal.scvSymbol("Ed25519"),
-                xdr.ScVal.scvBytes(sig),
-              ]),
-
-              xdr.ScVal.scvU32(exp),
-            ]),
-          });
-        }),
-      ]),
-    ]);
-
-    return signatures.toXDR("base64");
+    return buildSignaturesXDR(spendSigs, providerSigs);
   }
 
   async signWithProvider(
