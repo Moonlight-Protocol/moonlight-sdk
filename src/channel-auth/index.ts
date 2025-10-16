@@ -57,7 +57,7 @@ export class PrivacyChannel {
    * @returns {Contract} The Contract client instance.
    * @throws {Error} If the client instance is not set.
    * */
-  private getclient(): Contract {
+  private getClient(): Contract {
     return this.require("_client");
   }
 
@@ -80,7 +80,7 @@ export class PrivacyChannel {
    * @throws {Error} If the client instance is not set.
    * */
   public getAuthId(): ContractId {
-    return this.getclient().getContractId();
+    return this.getClient().getContractId();
   }
 
   //==========================================
@@ -102,7 +102,7 @@ export class PrivacyChannel {
     method: M;
     methodArgs: AuthRead[M]["input"];
   }): Promise<AuthRead[M]["output"]> {
-    return (await this.getclient().read(args)) as Promise<
+    return (await this.getClient().read(args)) as Promise<
       AuthRead[M]["output"]
     >;
   }
@@ -120,6 +120,6 @@ export class PrivacyChannel {
     methodArgs: AuthInvoke[M]["input"];
     config: TransactionConfig;
   }) {
-    return await this.getclient().invoke(args);
+    return await this.getClient().invoke(args);
   }
 }
