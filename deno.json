@@ -20,6 +20,7 @@
     "@noble/curves": "jsr:@noble/curves",
     "@noble/hashes": "jsr:@noble/hashes",
     "@noble/secp256k1": "jsr:@noble/secp256k1",
+    "@stellar/stellar-sdk": "npm:@stellar/stellar-sdk@^14.2.0",
     "jsr:@noble/curves/p256": "jsr:@noble/curves/p256@latest",
     "jsr:@noble/hashes/sha256": "jsr:@noble/hashes/sha256@latest",
     "jsr:@noble/hashes/hkdf": "jsr:@noble/hashes/hkdf@latest",
