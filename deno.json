@@ -25,8 +25,8 @@
     "jsr:@noble/hashes/sha256": "jsr:@noble/hashes/sha256@latest",
     "jsr:@noble/hashes/hkdf": "jsr:@noble/hashes/hkdf@latest",
     "jsr:@noble/curves/abstract/modular": "jsr:@noble/curves/abstract/modular@latest",
-    "stellar-plus": "npm:stellar-plus@^0.14.1",
-
+    "@colibri/core": "jsr:@colibri/core@^0.4.0",
+    "@stellar/stellar-sdk": "npm:@stellar/stellar-sdk@^14.0.0",
     "tslib": "npm:tslib@2.5.0",
     "buffer": "npm:buffer@6.0.3",
     "asn1js": "npm:asn1js@3.0.5"
