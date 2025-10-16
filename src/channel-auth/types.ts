@@ -1,8 +1,7 @@
 import type { ContractId, Ed25519PublicKey } from "@colibri/core";
-import type { Buffer } from "node:buffer";
 import type { AuthInvokeMethods, AuthReadMethods } from "./constants.ts";
 
-export type ContractConstructorArgs = {
+export type ChannelAuthConstructorArgs = {
   admin: Ed25519PublicKey | ContractId;
 };
 
