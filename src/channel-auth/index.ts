@@ -119,7 +119,7 @@ export class PrivacyChannel {
     method: M;
     methodArgs: AuthInvoke[M]["input"];
     config: TransactionConfig;
-  }): ReturnType<Contract["invoke"]> {
-    return await this.invoke(args);
+  }) {
+    return await this.getclient().invoke(args);
   }
 }
