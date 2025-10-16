@@ -23,8 +23,9 @@ import type { Buffer } from "node:buffer";
 import { loadContractWasm } from "../helpers/load-wasm.ts";
 import { ChannelAuth } from "../../src/channel-auth/index.ts";
 import type { ChannelAuthConstructorArgs } from "../../src/channel-auth/types.ts";
+import { disableSanitizeConfig } from "../utils/disable-sanitize-config.ts";
 
-describe("[Testnet - Integration] ChannelAuth", () => {
+describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
   const networkConfig = TestNet();
 
   const admin = NativeAccount.fromMasterSigner(LocalSigner.generateRandom());
