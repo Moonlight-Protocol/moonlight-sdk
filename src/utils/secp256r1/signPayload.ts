@@ -7,7 +7,7 @@ export async function signPayload(
   // Import the private key from the raw PKCS8 format
   const privateKey = await crypto.subtle.importKey(
     "pkcs8", // Format of the private key
-    privateKeyBytes, // Raw private key bytes
+    privateKeyBytes as BufferSource, // Raw private key bytes
     { name: "ECDSA", namedCurve: "P-256" }, // Algorithm details
     false, // Non-extractable
     ["sign"] // Usage
@@ -17,7 +17,7 @@ export async function signPayload(
   const signature = await crypto.subtle.sign(
     { name: "ECDSA", hash: { name: "SHA-256" } }, // Algorithm and hash
     privateKey, // Private key to sign with
-    payload // Data to sign
+    payload as BufferSource // Data to sign
   );
 
   // Convert signature to Uint8Array
