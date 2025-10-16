@@ -15,7 +15,7 @@ export class ChannelAuth {
   private _client: Contract;
   private _networkConfig: NetworkConfig;
 
-  private constructor(networkConfig: NetworkConfig, authId: ContractId) {
+  public constructor(networkConfig: NetworkConfig, authId: ContractId) {
     this._networkConfig = networkConfig;
 
     this._client = Contract.create({
