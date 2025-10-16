@@ -19,7 +19,7 @@ export class PrivacyChannel {
   private _networkConfig: NetworkConfig;
   private _derivator: StellarDerivator;
 
-  private constructor(
+  public constructor(
     networkConfig: NetworkConfig,
     channelId: ContractId,
     authId: ContractId
