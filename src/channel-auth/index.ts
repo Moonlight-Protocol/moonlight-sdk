@@ -11,7 +11,7 @@ import {
 } from "./constants.ts";
 import type { AuthInvoke, AuthRead } from "./types.ts";
 
-export class PrivacyChannel {
+export class ChannelAuth {
   private _client: Contract;
   private _networkConfig: NetworkConfig;
 
