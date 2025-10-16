@@ -16,13 +16,15 @@ import type { ChannelInvoke, ChannelRead } from "./types.ts";
 export class PrivacyChannel {
   private _client: Contract;
   private _authId: ContractId;
+  private _assetId: ContractId;
   private _networkConfig: NetworkConfig;
   private _derivator: StellarDerivator;
 
   public constructor(
     networkConfig: NetworkConfig,
     channelId: ContractId,
-    authId: ContractId
+    authId: ContractId,
+    assetId: ContractId
   ) {
     this._networkConfig = networkConfig;
 
@@ -32,6 +34,8 @@ export class PrivacyChannel {
     });
 
     this._authId = authId;
+
+    this._assetId = assetId;
 
     this._derivator = new StellarDerivator().withNetworkAndContract(
       networkConfig.networkPassphrase as StellarNetworkId,
@@ -56,8 +60,9 @@ export class PrivacyChannel {
   private require(arg: "_authId"): ContractId;
   private require(arg: "_networkConfig"): NetworkConfig;
   private require(arg: "_derivator"): StellarDerivator;
+  private require(arg: "_assetId"): ContractId;
   private require(
-    arg: "_client" | "_authId" | "_networkConfig" | "_derivator"
+    arg: "_client" | "_authId" | "_networkConfig" | "_derivator" | "_assetId"
   ): Contract | ContractId | NetworkConfig | StellarDerivator {
     if (this[arg]) return this[arg];
     throw new Error(`Property ${arg} is not set in the Channel instance.`);
@@ -89,6 +94,17 @@ export class PrivacyChannel {
    * */
   public getAuthId(): ContractId {
     return this.require("_authId");
+  }
+
+  /**
+   * Returns the Asset contract ID.
+   *
+   * @params None
+   * @returns {ContractId} The Asset contract ID.
+   * @throws {Error} If the Asset contract ID is not set.
+   * */
+  public getAssetId(): ContractId {
+    return this.require("_assetId");
   }
 
   /**
