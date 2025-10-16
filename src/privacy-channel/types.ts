@@ -2,7 +2,7 @@ import type { ContractId, Ed25519PublicKey } from "@colibri/core";
 import type { Buffer } from "node:buffer";
 import type { ChannelInvokeMethods, ChannelReadMethods } from "./constants.ts";
 
-export type ContractConstructorArgs = {
+export type ChannelConstructorArgs = {
   admin: Ed25519PublicKey | ContractId;
   auth_contract: ContractId;
   asset: ContractId;
