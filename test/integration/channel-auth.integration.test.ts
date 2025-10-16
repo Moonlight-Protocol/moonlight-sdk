@@ -24,7 +24,7 @@ import { loadContractWasm } from "../helpers/load-wasm.ts";
 import { ChannelAuth } from "../../src/channel-auth/index.ts";
 import type { ChannelAuthConstructorArgs } from "../../src/channel-auth/types.ts";
 
-describe("[Testnet - Integration] AuthChannel", () => {
+describe("[Testnet - Integration] ChannelAuth", () => {
   const networkConfig = TestNet();
 
   const admin = NativeAccount.fromMasterSigner(LocalSigner.generateRandom());
