@@ -33,7 +33,7 @@ describe("[Testnet - Integration] AuthChannel", () => {
   );
 
   const txConfig: TransactionConfig = {
-    fee: "100",
+    fee: "1000000",
     timeout: 30,
     source: admin.address(),
     signers: [admin.signer()],
