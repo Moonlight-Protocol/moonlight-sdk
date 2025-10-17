@@ -1,27 +1,7 @@
-// export type CreateCondition = {
-//     action: "CREATE";
-//     utxo: Uint8Array;
-//     amount: bigint;
-//   };
 
 import type { Ed25519PublicKey } from "@colibri/core";
 import type { UTXOPublicKey } from "../transaction-builder/types.ts";
 import type { xdr } from "@stellar/stellar-sdk";
-
-//   export type DepositCondition = {
-//     action: "DEPOSIT";
-//     publicKey: string;
-//     amount: bigint;
-//   };
-
-//   export type WithdrawCondition = {
-//     action: "WITHDRAW";
-//     publicKey: string;
-//     amount: bigint;
-//   };
-
-// export type Condition = CreateCondition | DepositCondition | WithdrawCondition;
-
 export enum UTXOOperation {
   CREATE = "Create",
   DEPOSIT = "Deposit",
