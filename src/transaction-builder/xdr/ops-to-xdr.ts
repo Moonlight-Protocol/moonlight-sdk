@@ -1,12 +1,11 @@
 import { xdr, nativeToScVal } from "@stellar/stellar-sdk";
 import { Buffer } from "buffer";
-import {
+import type {
   CreateOperation,
   DepositOperation,
   WithdrawOperation,
   SpendOperation,
 } from "../types.ts";
-import { conditionToXDR } from "../../conditions/index.ts";
 
 export const createOpToXDR = (op: CreateOperation): xdr.ScVal => {
   return xdr.ScVal.scvVec([
@@ -21,7 +20,7 @@ export const depositOpToXDR = (op: DepositOperation): xdr.ScVal => {
     nativeToScVal(op.amount, { type: "i128" }),
     op.conditions.length === 0
       ? xdr.ScVal.scvVec(null)
-      : xdr.ScVal.scvVec(op.conditions.map((c) => conditionToXDR(c))),
+      : xdr.ScVal.scvVec(op.conditions.map((c) => c.toScVal())),
   ]);
 };
 
@@ -31,7 +30,7 @@ export const withdrawOpToXDR = (op: WithdrawOperation): xdr.ScVal => {
     nativeToScVal(op.amount, { type: "i128" }),
     op.conditions.length === 0
       ? xdr.ScVal.scvVec(null)
-      : xdr.ScVal.scvVec(op.conditions.map((c) => conditionToXDR(c))),
+      : xdr.ScVal.scvVec(op.conditions.map((c) => c.toScVal())),
   ]);
 };
 
@@ -40,8 +39,6 @@ export const spendOpToXDR = (op: SpendOperation): xdr.ScVal => {
     xdr.ScVal.scvBytes(Buffer.from(op.utxo as Uint8Array)),
     op.conditions.length === 0
       ? xdr.ScVal.scvVec(null)
-      : xdr.ScVal.scvVec(op.conditions.map((c) => conditionToXDR(c))),
+      : xdr.ScVal.scvVec(op.conditions.map((c) => c.toScVal())),
   ]);
 };
-
-
