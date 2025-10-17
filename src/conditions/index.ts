@@ -59,7 +59,7 @@ export class Condition implements BaseCondition {
     utxo?: UTXOPublicKey;
   }) {
     if (amount <= 0n) {
-      throw new Error("Amount must be greater than zero.");
+      throw new Error("Amount must be greater than zero");
     }
 
     this._op = op;
