@@ -180,7 +180,7 @@ export class Condition implements BaseCondition {
     arg: "_op" | "_amount" | "_publicKey" | "_utxo"
   ): UTXOOperation | bigint | Ed25519PublicKey | UTXOPublicKey {
     if (this[arg]) return this[arg];
-    throw new Error(`Property ${arg} is not set in the Condition instance.`);
+    throw new Error(`Property ${arg} is not set in the Condition instance`);
   }
 
   //==========================================
