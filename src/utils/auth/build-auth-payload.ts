@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import {
+import type {
   Condition,
   CreateCondition,
   DepositCondition,
@@ -25,37 +25,36 @@ export const buildAuthPayloadHash = ({
   const withdrawConditions: WithdrawCondition[] = [];
 
   for (const condition of conditions) {
-    if (condition.action === "CREATE") {
+    if (condition.isCreate()) {
       createConditions.push(condition);
-    } else if (condition.action === "DEPOSIT") {
+    } else if (condition.isDeposit()) {
       depositConditions.push(condition);
-    } else if (condition.action === "WITHDRAW") {
+    } else if (condition.isWithdraw()) {
       withdrawConditions.push(condition);
     }
   }
 
   // CREATE
   for (const createCond of createConditions) {
-    parts.push(new Uint8Array(createCond.utxo));
-    const amountBytes = bigintToLE(createCond.amount, 16);
+    parts.push(new Uint8Array(createCond.getUtxo()));
+    const amountBytes = bigintToLE(createCond.getAmount(), 16);
     parts.push(amountBytes);
   }
   // DEPOSIT
   for (const depositCond of depositConditions) {
-    parts.push(encoder.encode(depositCond.publicKey));
-    parts.push(bigintToLE(depositCond.amount, 16));
+    parts.push(encoder.encode(depositCond.getPublicKey()));
+    parts.push(bigintToLE(depositCond.getAmount(), 16));
   }
   // WITHDRAW
   for (const withdrawCond of withdrawConditions) {
-    parts.push(encoder.encode(withdrawCond.publicKey));
-    parts.push(bigintToLE(withdrawCond.amount, 16));
+    parts.push(encoder.encode(withdrawCond.getPublicKey()));
+    parts.push(bigintToLE(withdrawCond.getAmount(), 16));
   }
 
   const encodedLiveUntil = bigintToLE(BigInt(liveUntilLedger), 4);
   parts.push(encodedLiveUntil);
 
   // Concatenate all parts into one Uint8Array
-  const payloadBuffer = Buffer.concat(parts);
   const payload = Buffer.concat(parts);
 
   return payload;

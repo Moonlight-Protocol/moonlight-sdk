@@ -1,4 +1,4 @@
-import { Condition } from "../conditions/types.ts";
+import type { Condition } from "../conditions/types.ts";
 
 export type MoonlightOperation = {
   create: CreateOperation[];

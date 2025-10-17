@@ -1,23 +1,45 @@
 import {
-  Asset,
+  type Asset,
   authorizeEntry,
-  Keypair,
+  type Keypair,
   xdr,
 } from "@stellar/stellar-sdk";
 import { Buffer } from "buffer";
-import { CreateOperation, DepositOperation, SpendOperation, WithdrawOperation, UTXOPublicKey, Ed25519PublicKey } from "../transaction-builder/types.ts";
-import { StellarSmartContractId } from "../utils/types/stellar.types.ts";
-import { Condition } from "../conditions/types.ts";
+import type {
+  CreateOperation,
+  DepositOperation,
+  SpendOperation,
+  WithdrawOperation,
+  UTXOPublicKey,
+  Ed25519PublicKey,
+} from "../transaction-builder/types.ts";
+import type { StellarSmartContractId } from "../utils/types/stellar.types.ts";
 import { generateNonce } from "../utils/common/index.ts";
-import { conditionToXDR } from "../conditions/index.ts";
-import { MoonlightOperation } from "../transaction-builder/types.ts";
+
+import type { MoonlightOperation } from "../transaction-builder/types.ts";
 import { buildAuthPayloadHash } from "../utils/auth/build-auth-payload.ts";
-import { IUTXOKeypairBase } from "../core/utxo-keypair-base/types.ts";
-import { createOpToXDR, depositOpToXDR, withdrawOpToXDR, spendOpToXDR } from "./xdr/index.ts";
+import type { IUTXOKeypairBase } from "../core/utxo-keypair-base/types.ts";
+import {
+  createOpToXDR,
+  depositOpToXDR,
+  withdrawOpToXDR,
+  spendOpToXDR,
+} from "./xdr/index.ts";
 import { buildSignaturesXDR } from "./signatures/index.ts";
-import { buildBundleAuthEntry, buildDepositAuthEntry, buildOperationAuthEntryHash } from "./auth/index.ts";
+import {
+  buildBundleAuthEntry,
+  buildDepositAuthEntry,
+  buildOperationAuthEntryHash,
+} from "./auth/index.ts";
 import { orderSpendByUtxo } from "./utils/index.ts";
-import { assertPositiveAmount, assertNoDuplicateCreate, assertNoDuplicateSpend, assertNoDuplicatePubKey, assertSpendExists } from "./validators/index.ts";
+import {
+  assertPositiveAmount,
+  assertNoDuplicateCreate,
+  assertNoDuplicateSpend,
+  assertNoDuplicatePubKey,
+  assertSpendExists,
+} from "./validators/index.ts";
+import type { Condition } from "../conditions/types.ts";
 
 export class MoonlightTransactionBuilder {
   private create: CreateOperation[] = [];
@@ -28,10 +50,8 @@ export class MoonlightTransactionBuilder {
   private authId: StellarSmartContractId;
   private asset: Asset;
   private network: string;
-  private innerSignatures: Map<
-    Uint8Array,
-    { sig: Buffer; exp: number }
-  > = new Map();
+  private innerSignatures: Map<Uint8Array, { sig: Buffer; exp: number }> =
+    new Map();
   private providerInnerSignatures: Map<
     Ed25519PublicKey,
     { sig: Buffer; exp: number; nonce: string }
@@ -162,7 +182,9 @@ export class MoonlightTransactionBuilder {
       assetId: this.asset.contractId(this.network),
       depositor: address,
       amount: deposit.amount,
-      conditions: [xdr.ScVal.scvVec(deposit.conditions.map(conditionToXDR))],
+      conditions: [
+        xdr.ScVal.scvVec(deposit.conditions.map((c) => c.toScVal())),
+      ],
       nonce,
       signatureExpirationLedger,
     });
@@ -182,7 +204,7 @@ export class MoonlightTransactionBuilder {
             xdr.ScVal.scvSymbol("P256"),
             xdr.ScVal.scvBytes(Buffer.from(spend.utxo as Uint8Array)),
           ]),
-          val: xdr.ScVal.scvVec(spend.conditions.map(conditionToXDR)),
+          val: xdr.ScVal.scvVec(spend.conditions.map((c) => c.toScVal())),
         })
       );
     }
@@ -236,7 +258,7 @@ export class MoonlightTransactionBuilder {
       nonce,
       signatureExpirationLedger
     ).rootInvocation();
-    return buildOperationAuthEntryHash({
+    return await buildOperationAuthEntryHash({
       network: this.network,
       rootInvocation,
       nonce,
@@ -246,9 +268,12 @@ export class MoonlightTransactionBuilder {
 
   signaturesXDR(): string {
     const providerSigners = Array.from(this.providerInnerSignatures.keys());
-    if (providerSigners.length === 0) throw new Error("No Provider signatures added");
+    if (providerSigners.length === 0)
+      throw new Error("No Provider signatures added");
 
-    const spendSigs = Array.from(this.innerSignatures.entries()).map(([utxo, { sig, exp }]) => ({ utxo, sig, exp }));
+    const spendSigs = Array.from(this.innerSignatures.entries()).map(
+      ([utxo, { sig, exp }]) => ({ utxo, sig, exp })
+    );
     const providerSigs = providerSigners.map((pk) => {
       const { sig, exp } = this.providerInnerSignatures.get(pk)!;
       return { pubKey: pk, sig, exp };
