@@ -116,7 +116,7 @@ export class Condition implements BaseCondition {
     amount: bigint
   ): DepositCondition {
     if (!StrKey.isValidEd25519PublicKey(publicKey)) {
-      throw new Error("Invalid Ed25519 public key.");
+      throw new Error("Invalid Ed25519 public key");
     }
 
     return new Condition({
