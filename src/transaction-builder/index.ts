@@ -2,6 +2,7 @@ import {
   type Asset,
   authorizeEntry,
   type Keypair,
+  Operation,
   xdr,
 } from "@stellar/stellar-sdk";
 import { Buffer } from "buffer";
@@ -40,6 +41,7 @@ import {
   assertSpendExists,
 } from "./validators/index.ts";
 import type { Condition } from "../conditions/types.ts";
+import { type TransactionSigner, isTransactionSigner } from "@colibri/core";
 
 export class MoonlightTransactionBuilder {
   private create: CreateOperation[] = [];
@@ -283,19 +285,25 @@ export class MoonlightTransactionBuilder {
   }
 
   async signWithProvider(
-    providerKeys: Keypair,
+    providerKeys: TransactionSigner | Keypair,
     signatureExpirationLedger: number,
     nonce?: string
   ) {
     if (!nonce) nonce = generateNonce();
 
-    const signedHash = providerKeys.sign(
-      await this.getOperationAuthEntryHash(nonce, signatureExpirationLedger)
+    const authHash = await this.getOperationAuthEntryHash(
+      nonce,
+      signatureExpirationLedger
     );
+
+    const signedHash = isTransactionSigner(providerKeys)
+      ? // deno-lint-ignore no-explicit-any
+        providerKeys.sign(authHash as any)
+      : providerKeys.sign(authHash);
 
     this.addProviderInnerSignature(
       providerKeys.publicKey() as Ed25519PublicKey,
-      signedHash,
+      signedHash as Buffer,
       signatureExpirationLedger,
       nonce
     );
@@ -326,7 +334,7 @@ export class MoonlightTransactionBuilder {
   }
 
   async signExtWithEd25519(
-    keys: Keypair,
+    keys: TransactionSigner | Keypair,
     signatureExpirationLedger: number,
     nonce?: string
   ) {
@@ -338,12 +346,21 @@ export class MoonlightTransactionBuilder {
       signatureExpirationLedger
     );
 
-    const signedAuthEntry = await authorizeEntry(
-      rawAuthEntry,
-      keys,
-      signatureExpirationLedger,
-      this.network
-    );
+    let signedAuthEntry: xdr.SorobanAuthorizationEntry;
+    if (isTransactionSigner(keys)) {
+      signedAuthEntry = await keys.signSorobanAuthEntry(
+        rawAuthEntry,
+        signatureExpirationLedger,
+        this.network
+      );
+    } else {
+      signedAuthEntry = await authorizeEntry(
+        rawAuthEntry,
+        keys,
+        signatureExpirationLedger,
+        this.network
+      );
+    }
 
     this.addExtSignedEntry(
       keys.publicKey() as Ed25519PublicKey,
@@ -357,6 +374,17 @@ export class MoonlightTransactionBuilder {
       this.getSignedOperationAuthEntry(),
     ];
     return signedEntries;
+  }
+
+  getInvokeOperation(): xdr.Operation {
+    return Operation.invokeContractFunction({
+      contract: this.channelId,
+
+      function: "transact",
+
+      args: [this.buildXDR()],
+      auth: [...this.getSignedAuthEntries()],
+    });
   }
 
   buildXDR(): xdr.ScVal {

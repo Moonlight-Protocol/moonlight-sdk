@@ -12,6 +12,7 @@ import {
   ChannelSpec,
 } from "./constants.ts";
 import type { ChannelInvoke, ChannelRead } from "./types.ts";
+import { xdr } from "@stellar/stellar-sdk";
 
 export class PrivacyChannel {
   private _client: Contract;
@@ -175,8 +176,31 @@ export class PrivacyChannel {
   public async invoke<M extends ChannelInvokeMethods>(args: {
     method: M;
     methodArgs: ChannelInvoke[M]["input"];
+    auth?: xdr.SorobanAuthorizationEntry[];
     config: TransactionConfig;
   }) {
     return await this.getClient().invoke(args);
+  }
+
+  /**
+   * Invoke the contract function directly using the specified operation arguments.
+   *
+   * @param args
+   * @param { operationArgs } args.operationArgs - The operation arguments for the invoke.
+   * @param { string } args.operationArgs.function - The function name to invoke.
+   * @param { xdr.ScVal[] } args.operationArgs.args - The arguments for the function.
+   * @param { xdr.SorobanAuthorizationEntry[] } [args.operationArgs.auth] - Optional authorization entries.
+   * @param { TransactionConfig } args.config - The transaction configuration.
+   * @returns {ReturnType<Contract["invoke"]>} A promise that resolves to the invoke colibri response.
+   * */
+  public async invokeRaw(args: {
+    operationArgs: {
+      function: string;
+      args: xdr.ScVal[];
+      auth?: xdr.SorobanAuthorizationEntry[];
+    };
+    config: TransactionConfig;
+  }) {
+    return await this.getClient().invokeRaw(args);
   }
 }
