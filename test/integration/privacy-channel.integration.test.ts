@@ -7,41 +7,60 @@ import {
   TestNet,
   initializeWithFriendbot,
   Contract,
+  P_SimulateTransactionErrors,
 } from "@colibri/core";
 
 import type {
   Ed25519PublicKey,
   TransactionConfig,
   ContractId,
+  TestNetConfig,
+  Ed25519SecretKey,
 } from "@colibri/core";
-import { AuthSpec } from "../../src/channel-auth/constants.ts";
+import {
+  AuthInvokeMethods,
+  AuthSpec,
+} from "../../src/channel-auth/constants.ts";
 import type { Buffer } from "node:buffer";
 import { loadContractWasm } from "../helpers/load-wasm.ts";
 import type { ChannelAuthConstructorArgs } from "../../src/channel-auth/types.ts";
 import type { ChannelConstructorArgs } from "../../src/privacy-channel/types.ts";
 import {
+  ChannelInvokeMethods,
   ChannelReadMethods,
   ChannelSpec,
 } from "../../src/privacy-channel/constants.ts";
-import { Asset } from "@stellar/stellar-sdk";
+import { Asset, Keypair } from "@stellar/stellar-sdk";
 import { PrivacyChannel } from "../../src/privacy-channel/index.ts";
 import { disableSanitizeConfig } from "../utils/disable-sanitize-config.ts";
 import { generateP256KeyPair } from "../../src/utils/secp256r1/generateP256KeyPair.ts";
+import { MoonlightTransactionBuilder } from "../../src/transaction-builder/index.ts";
+import { Condition } from "../../src/conditions/index.ts";
+import { Server } from "@stellar/stellar-sdk/rpc";
+import { generateNonce } from "../../src/utils/common/index.ts";
 
 describe(
   "[Testnet - Integration] PrivacyChannel",
   disableSanitizeConfig,
   () => {
-    const networkConfig = TestNet();
+    const networkConfig: TestNetConfig = TestNet();
 
     const admin = NativeAccount.fromMasterSigner(LocalSigner.generateRandom());
+
+    const providerKeys = Keypair.random();
+    const johnKeys = Keypair.random();
+
     const providerA = NativeAccount.fromMasterSigner(
-      LocalSigner.generateRandom()
+      LocalSigner.fromSecret(providerKeys.secret() as Ed25519SecretKey)
+    );
+
+    const john = NativeAccount.fromMasterSigner(
+      LocalSigner.fromSecret(johnKeys.secret() as Ed25519SecretKey)
     );
 
     const txConfig: TransactionConfig = {
       fee: "1000000",
-      timeout: 30,
+      timeout: 60,
       source: admin.address(),
       signers: [admin.signer()],
     };
@@ -49,6 +68,8 @@ describe(
     const assetId = Asset.native().contractId(
       networkConfig.networkPassphrase
     ) as ContractId;
+
+    let rpc: Server;
 
     let authWasm: Buffer;
     let channelWasm: Buffer;
@@ -65,6 +86,13 @@ describe(
         networkConfig.friendbotUrl,
         providerA.address() as Ed25519PublicKey
       );
+
+      await initializeWithFriendbot(
+        networkConfig.friendbotUrl,
+        john.address() as Ed25519PublicKey
+      );
+
+      rpc = new Server(networkConfig.rpcUrl as string);
 
       authWasm = loadContractWasm("channel_auth_contract");
       channelWasm = loadContractWasm("privacy_channel");
@@ -89,6 +117,14 @@ describe(
       });
 
       authId = authContract.getContractId();
+
+      await authContract.invoke({
+        method: AuthInvokeMethods.add_provider,
+        methodArgs: {
+          provider: providerA.address() as Ed25519PublicKey,
+        },
+        config: { ...txConfig, signers: [admin.signer(), providerA.signer()] },
+      });
     });
 
     describe("Basic tests", () => {
@@ -184,14 +220,84 @@ describe(
         assertEquals(utxoBal, -1n); // UTXO is in Unused state
       });
 
-      //TODO: Complete this test once we have the tx builder
-      it.skip("should invoke the contract", async () => {
-        // const channelClient = new PrivacyChannel(
-        //   networkConfig,
-        //   channelId,
-        //   authId,
-        //   assetId
-        // );
+      it("should invoke the contract", async () => {
+        const channelClient = new PrivacyChannel(
+          networkConfig,
+          channelId,
+          authId,
+          assetId
+        );
+
+        const utxoAKeypair = await generateP256KeyPair();
+        const utxoBKeypair = await generateP256KeyPair();
+
+        const depositTx = new MoonlightTransactionBuilder({
+          network: networkConfig.networkPassphrase,
+          channelId: channelId,
+          authId: authId,
+          asset: Asset.native(),
+        });
+
+        depositTx.addDeposit(john.address() as Ed25519PublicKey, 500n, [
+          Condition.create(utxoAKeypair.publicKey, 250n),
+          Condition.create(utxoBKeypair.publicKey, 250n),
+        ]);
+
+        depositTx.addCreate(utxoAKeypair.publicKey, 250n);
+        depositTx.addCreate(utxoBKeypair.publicKey, 250n);
+
+        const latestLedger = await rpc.getLatestLedger();
+
+        const signatureExpirationLedger = latestLedger.sequence + 100;
+
+        const nonce = generateNonce();
+
+        await depositTx.signExtWithEd25519(
+          johnKeys,
+          signatureExpirationLedger,
+          nonce
+        );
+
+        await depositTx.signWithProvider(
+          providerKeys,
+          signatureExpirationLedger,
+          nonce
+        );
+
+        await channelClient
+          .invokeRaw({
+            operationArgs: {
+              function: ChannelInvokeMethods.transact,
+              args: [depositTx.buildXDR()],
+              auth: [...depositTx.getSignedAuthEntries()],
+            },
+            config: txConfig,
+          })
+          .catch((e) => {
+            if (e instanceof P_SimulateTransactionErrors.SIMULATION_FAILED) {
+              console.error("Error invoking contract:", e);
+              console.error(
+                "Transaction XDR:",
+                e.meta.data.input.transaction.toXDR()
+              );
+            }
+            throw e;
+          });
+
+        const utxoABal = await channelClient.read({
+          method: ChannelReadMethods.utxo_balance,
+          methodArgs: { utxo: utxoAKeypair.publicKey as Buffer },
+        });
+
+        const utxoBBal = await channelClient.read({
+          method: ChannelReadMethods.utxo_balance,
+          methodArgs: { utxo: utxoBKeypair.publicKey as Buffer },
+        });
+
+        assertExists(utxoABal);
+        assertEquals(utxoABal, 250n);
+        assertExists(utxoBBal);
+        assertEquals(utxoBBal, 250n);
       });
     });
   }
