@@ -6,10 +6,7 @@ import type {
 } from "./types.ts";
 import { BaseDerivator } from "../base/index.ts";
 import type { StellarNetworkId } from "./stellar-network-id.ts";
-import type {
-  StellarSecretKey,
-  StellarSmartContractId,
-} from "../../utils/types/stellar.types.ts";
+import type { ContractId, Ed25519SecretKey } from "@colibri/core";
 
 /**
  * Assembles a network context string from network ID and smart contract ID
@@ -19,7 +16,7 @@ import type {
  */
 export function assembleNetworkContext(
   network: StellarNetworkId,
-  contractId: StellarSmartContractId
+  contractId: ContractId
 ): StellarNetworkContext {
   return `${network}${contractId}`;
 }
@@ -41,7 +38,7 @@ export class StellarDerivator extends BaseDerivator<
    */
   withNetworkAndContract(
     network: StellarNetworkId,
-    contractId: StellarSmartContractId
+    contractId: ContractId
   ): this {
     const context = assembleNetworkContext(network, contractId);
     return this.withContext(context);
@@ -52,7 +49,7 @@ export class StellarDerivator extends BaseDerivator<
    * @param secretKey - Stellar secret key (starts with 'S')
    * @throws If root has already been set
    */
-  withSecretKey(secretKey: StellarSecretKey): this {
+  withSecretKey(secretKey: Ed25519SecretKey): this {
     return this.withRoot(secretKey);
   }
 }
@@ -66,8 +63,8 @@ export class StellarDerivator extends BaseDerivator<
  */
 export function createForAccount(
   networkId: StellarNetworkId,
-  contractId: StellarSmartContractId,
-  secretKey: StellarSecretKey
+  contractId: ContractId,
+  secretKey: Ed25519SecretKey
 ): StellarDerivator {
   return new StellarDerivator()
     .withNetworkAndContract(networkId, contractId)

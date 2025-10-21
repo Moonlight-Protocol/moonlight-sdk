@@ -1,9 +1,5 @@
 import { BaseDerivator, generatePlainTextSeed, hashSeed } from "./index.ts";
-import {
-  assertEquals,
-  assertThrows,
-  assertExists,
-} from "https://deno.land/std@0.220.1/assert/mod.ts";
+import { assertEquals, assertThrows, assertExists } from "@std/assert";
 
 Deno.test("BaseDerivator", async (t) => {
   await t.step("assembleSeed should work with complete components", () => {

@@ -1,9 +1,5 @@
 // deno-lint-ignore-file require-await
-import {
-  assertEquals,
-  assertNotEquals,
-  assertRejects,
-} from "https://deno.land/std@0.220.1/assert/mod.ts";
+import { assertEquals, assertNotEquals, assertRejects } from "@std/assert";
 import { BaseDerivator } from "../../derivation/base/index.ts";
 import { UTXOKeypair } from "./index.ts";
 import { type BalanceFetcher, UTXOStatus } from "./types.ts";
@@ -190,6 +186,7 @@ Deno.test("UTXOKeypair", async (t) => {
       assertEquals(utxo.index, "0");
 
       // The root should not be stored in the UTXOKeypair
+      // deno-lint-ignore no-explicit-any
       assertEquals((utxo as any).root, undefined);
     }
   );
@@ -228,6 +225,7 @@ Deno.test("UTXOKeypair", async (t) => {
         assertEquals(utxo.context, "test-context");
 
         // The root should not be stored in any of the UTXOKeypairs
+        // deno-lint-ignore no-explicit-any
         assertEquals((utxo as any).root, undefined);
       }
     }

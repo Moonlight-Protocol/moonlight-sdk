@@ -1,4 +1,4 @@
-import { UTXOKeypair } from "../core/utxo-keypair/index.ts";
+import type { UTXOKeypair } from "../core/utxo-keypair/index.ts";
 
 /**
  * Result of UTXO selection for transfers
