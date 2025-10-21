@@ -1,4 +1,5 @@
 export function traverseObjectLog(
+  // deno-lint-ignore no-explicit-any
   obj: any,
   options: { maxDepth?: number; nodeThreshold?: number } = {},
   currentDepth: number = 0
