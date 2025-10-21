@@ -132,7 +132,7 @@ export class MoonlightTransactionBuilder {
     | Map<Uint8Array, { sig: Buffer; exp: number }>
     | Map<Ed25519PublicKey, { sig: Buffer; exp: number; nonce: string }>
     | Map<Ed25519PublicKey, xdr.SorobanAuthorizationEntry> {
-    if (this[arg]) return this[arg];
+    if (this[arg] !== undefined) return this[arg];
     throw new Error(
       `Property ${arg} is not set in the Transaction Builder instance`
     );
