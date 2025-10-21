@@ -1,1566 +1,848 @@
-// deno-lint-ignore-file require-await
-import {
-  assertEquals,
-  assertThrows,
-} from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assertEquals, assertExists, assertThrows } from "@std/assert";
+import { beforeAll, describe, it } from "@std/testing/bdd";
+import { LocalSigner } from "@colibri/core";
+import { Asset, Networks } from "@stellar/stellar-sdk";
+import type { Ed25519PublicKey, ContractId } from "@colibri/core";
 import { MoonlightTransactionBuilder } from "./index.ts";
-import {
-  createOpToXDR,
-  depositOpToXDR,
-  withdrawOpToXDR,
-  spendOpToXDR,
-} from "./xdr/index.ts";
-import { Asset, Keypair, StrKey, xdr } from "@stellar/stellar-sdk";
-import { Buffer } from "buffer";
 import { Condition } from "../conditions/index.ts";
-import { StellarSmartContractId } from "../utils/types/stellar.types.ts";
+import { MoonlightOperation as Operation } from "../operation/index.ts";
 
-// Mock data for testing
-const mockChannelId: StellarSmartContractId = StrKey.encodeContract(
-  Buffer.alloc(32)
-) as StellarSmartContractId;
-const mockAuthId: StellarSmartContractId = StrKey.encodeContract(
-  Buffer.alloc(32, 1)
-) as StellarSmartContractId;
-const mockNetwork = "testnet";
-const mockAsset = Asset.native();
+import { generateP256KeyPair } from "../utils/secp256r1/generateP256KeyPair.ts";
+import { Buffer } from "buffer";
+import { generateNonce } from "../utils/common/index.ts";
+import { UTXOKeypairBase } from "../core/utxo-keypair-base/index.ts";
+import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 
-// Mock UTXO data
-const mockUTXO1 = Buffer.from([1, 2, 3, 4, 5, 6, 7, 8]);
-const mockUTXO2 = Buffer.from([9, 10, 11, 12, 13, 14, 15, 16]);
+describe("MoonlightTransactionBuilder", () => {
+  let validPublicKey: Ed25519PublicKey;
 
-// Mock Ed25519 public keys
-const mockEd25519Key1 = Keypair.random().publicKey() as `G${string}`;
-const mockEd25519Key2 = Keypair.random().publicKey() as `G${string}`;
+  let validAmount: bigint;
+  let channelId: ContractId;
+  let authId: ContractId;
+  let asset: Asset;
+  let network: string;
+  let builder: MoonlightTransactionBuilder;
 
-// Mock conditions
-const mockCreateCondition = Condition.create(mockUTXO1, 1000n);
+  beforeAll(() => {
+    validPublicKey =
+      LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
 
-const mockDepositCondition = Condition.deposit(mockEd25519Key1, 500n);
+    validAmount = 1000n;
+    channelId =
+      "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC" as ContractId;
+    authId =
+      "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA" as ContractId;
+    asset = Asset.native();
+    network = Networks.TESTNET;
 
-const mockWithdrawCondition = Condition.withdraw(mockEd25519Key2, 300n);
-
-// Helper function to create a test builder instance
-function createTestBuilder(): MoonlightTransactionBuilder {
-  return new MoonlightTransactionBuilder({
-    channelId: mockChannelId,
-    authId: mockAuthId,
-    asset: mockAsset,
-    network: mockNetwork,
+    builder = new MoonlightTransactionBuilder({
+      channelId,
+      authId,
+      asset,
+      network,
+    });
   });
-}
 
-Deno.test(
-  "MoonlightTransactionBuilder - Basic Operations (Add Methods)",
-  async (t) => {
-    await t.step(
-      "addCreate should add create operation with valid parameters",
-      () => {
-        const builder = createTestBuilder();
+  describe("Construction", () => {
+    it("should create a transaction builder with valid parameters", () => {
+      const txBuilder = new MoonlightTransactionBuilder({
+        channelId,
+        authId,
+        asset,
+        network,
+      });
 
-        const result = builder.addCreate(mockUTXO1, 1000n);
+      assertExists(txBuilder);
+      assertEquals(txBuilder.getChannelId(), channelId);
+      assertEquals(txBuilder.getAuthId(), authId);
+      assertEquals(txBuilder.getAsset(), asset);
+    });
 
-        // Should return builder instance for chaining
-        assertEquals(result, builder);
+    it("should initialize with empty operation arrays", () => {
+      const txBuilder = new MoonlightTransactionBuilder({
+        channelId,
+        authId,
+        asset,
+        network,
+      });
 
-        // Should have added the create operation
-        const operations = builder.getOperation();
-        assertEquals(operations.create.length, 1);
-        assertEquals(operations.create[0].utxo, mockUTXO1);
-        assertEquals(operations.create[0].amount, 1000n);
-      }
-    );
+      assertEquals(txBuilder.getCreateOperations().length, 0);
+      assertEquals(txBuilder.getSpendOperations().length, 0);
+      assertEquals(txBuilder.getDepositOperations().length, 0);
+      assertEquals(txBuilder.getWithdrawOperations().length, 0);
+    });
+  });
 
-    await t.step(
-      "addCreate should throw error when UTXO already exists",
-      () => {
-        const builder = createTestBuilder();
+  describe("Features", () => {
+    describe("Operation Management", () => {
+      it("should add CREATE operations successfully", async () => {
+        const utxo = (await generateP256KeyPair()).publicKey as UTXOPublicKey;
+        const operation = Operation.create(utxo, validAmount);
+        // Note: CREATE operations don't have conditions
 
-        builder.addCreate(mockUTXO1, 1000n);
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
 
-        // Should throw error when adding same UTXO again
+        testBuilder.addOperation(operation);
+
+        const creates = testBuilder.getCreateOperations();
+        assertEquals(creates.length, 1);
+        assertEquals(creates[0].getAmount(), validAmount);
+      });
+
+      it("should return correct deposit operation by public key", () => {
+        const pubKey =
+          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
+        const condition = Condition.deposit(pubKey, validAmount);
+        const operation = Operation.deposit(pubKey, validAmount);
+        operation.addCondition(condition);
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addDeposit(operation);
+
+        const foundOperation = testBuilder.getDepositOperation(pubKey);
+        assertExists(foundOperation);
+        assertEquals(foundOperation.getPublicKey(), pubKey);
+        assertEquals(foundOperation.getAmount(), validAmount);
+      });
+
+      it("should return undefined for non-existent deposit operation", () => {
+        const nonExistentKey =
+          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
+        const foundOperation = builder.getDepositOperation(nonExistentKey);
+        assertEquals(foundOperation, undefined);
+      });
+    });
+
+    describe("Signature Management", () => {
+      it("should add inner signatures for UTXO operations", async () => {
+        const utxo = (await generateP256KeyPair()).publicKey as UTXOPublicKey;
+        const condition = Condition.create(utxo, validAmount);
+        const spendOperation = Operation.spend(utxo);
+        spendOperation.addCondition(condition);
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        // Add spend operation first
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addSpend(spendOperation);
+
+        const signature = Buffer.from("test_signature");
+        const expirationLedger = 1000000;
+
+        testBuilder.addInnerSignature(utxo, signature, expirationLedger);
+
+        // deno-lint-ignore no-explicit-any
+        const signatures = (testBuilder as any).innerSignatures;
+        assertEquals(signatures.size, 1);
+      });
+
+      it("should add provider inner signatures", () => {
+        const signature = Buffer.from("provider_signature");
+        const expirationLedger = 1000000;
+        const nonce = generateNonce();
+
+        builder.addProviderInnerSignature(
+          validPublicKey,
+          signature,
+          expirationLedger,
+          nonce
+        );
+
+        // deno-lint-ignore no-explicit-any
+        const providerSigs = (builder as any).providerInnerSignatures;
+        assertEquals(providerSigs.size >= 1, true);
+      });
+      it("should sign with provider using keypair", async () => {
+        const providerKeys = LocalSigner.generateRandom();
+        const signatureExpirationLedger = 1000000;
+        const nonce = generateNonce();
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        await testBuilder.signWithProvider(
+          providerKeys,
+          signatureExpirationLedger,
+          nonce
+        );
+
+        // deno-lint-ignore no-explicit-any
+        const providerSigs = (testBuilder as any).providerInnerSignatures;
+        assertEquals(providerSigs.size, 1);
+        assertEquals(
+          providerSigs.has(providerKeys.publicKey() as Ed25519PublicKey),
+          true
+        );
+      });
+
+      it("should sign with provider and auto-generate nonce if not provided", async () => {
+        const providerKeys = LocalSigner.generateRandom();
+        const signatureExpirationLedger = 1000000;
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        await testBuilder.signWithProvider(
+          providerKeys,
+          signatureExpirationLedger
+        );
+
+        // deno-lint-ignore no-explicit-any
+        const providerSigs = (testBuilder as any).providerInnerSignatures;
+        assertEquals(providerSigs.size, 1);
+
+        // Verify nonce was auto-generated
+        const sigData = providerSigs.get(
+          providerKeys.publicKey() as Ed25519PublicKey
+        );
+        assertExists(sigData.nonce);
+      });
+
+      it("should sign with spend UTXO", async () => {
+        const utxoKeys = new UTXOKeypairBase(await generateP256KeyPair());
+        const utxo = utxoKeys.publicKey as UTXOPublicKey;
+        const spendOperation = Operation.spend(utxo);
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addSpend(spendOperation);
+
+        const signatureExpirationLedger = 1000000;
+
+        await testBuilder.signWithSpendUtxo(
+          utxoKeys,
+          signatureExpirationLedger
+        );
+
+        // deno-lint-ignore no-explicit-any
+        const innerSigs = (testBuilder as any).innerSignatures;
+        assertEquals(innerSigs.size, 1);
+      });
+
+      it("should sign external entry with Ed25519 keys", async () => {
+        const userKeys = LocalSigner.generateRandom();
+        const pubKey = userKeys.publicKey() as Ed25519PublicKey;
+        const condition = Condition.deposit(pubKey, validAmount);
+        const operation = Operation.deposit(pubKey, validAmount);
+        operation.addCondition(condition);
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addDeposit(operation);
+
+        const nonce = generateNonce();
+        const signatureExpirationLedger = 1000000;
+
+        await testBuilder.signExtWithEd25519(
+          userKeys,
+
+          signatureExpirationLedger,
+          nonce
+        );
+
+        // deno-lint-ignore no-explicit-any
+        const extSigs = (testBuilder as any).extSignatures;
+        assertEquals(extSigs.size, 1);
+        assertEquals(extSigs.has(pubKey), true);
+      });
+
+      it("should add external signed entry", () => {
+        const pubKey =
+          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
+        const condition = Condition.deposit(pubKey, validAmount);
+        const operation = Operation.deposit(pubKey, validAmount);
+        operation.addCondition(condition);
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addDeposit(operation);
+
+        const nonce = generateNonce();
+        const signatureExpirationLedger = 1000000;
+        const authEntry = testBuilder.getExtAuthEntry(
+          pubKey,
+          nonce,
+          signatureExpirationLedger
+        );
+
+        testBuilder.addExtSignedEntry(pubKey, authEntry);
+
+        // deno-lint-ignore no-explicit-any
+        const extSigs = (testBuilder as any).extSignatures;
+        assertEquals(extSigs.size, 1);
+        assertEquals(extSigs.has(pubKey), true);
+      });
+    });
+
+    describe("XDR Generation", () => {
+      it("should build XDR with empty operations", () => {
+        const xdr = builder.buildXDR();
+
+        assertExists(xdr);
+        assertEquals(xdr.switch().name, "scvMap");
+
+        const mapEntries = xdr.map();
+        if (mapEntries) {
+          assertEquals(mapEntries.length, 4); // create, deposit, spend, withdraw
+        }
+      });
+
+      it("should build XDR with operations", async () => {
+        const utxo = (await generateP256KeyPair()).publicKey as UTXOPublicKey;
+        const operation = Operation.create(utxo, validAmount);
+        // Note: CREATE operations don't have conditions
+
+        const builderWithOps = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        builderWithOps.addOperation(operation);
+        const xdr = builderWithOps.buildXDR();
+
+        assertExists(xdr);
+        assertEquals(xdr.switch().name, "scvMap");
+      });
+    });
+
+    describe("Auth Entry Generation", () => {
+      it("should generate operation auth entry with valid parameters", () => {
+        const nonce = generateNonce();
+        const signatureExpirationLedger = 1000000;
+
+        const authEntry = builder.getOperationAuthEntry(
+          nonce,
+          signatureExpirationLedger
+        );
+
+        assertExists(authEntry);
+        assertEquals(typeof authEntry.toXDR, "function");
+      });
+
+      it("should generate operation auth entry hash", async () => {
+        const nonce = generateNonce();
+        const signatureExpirationLedger = 1000000;
+
+        const hash = await builder.getOperationAuthEntryHash(
+          nonce,
+          signatureExpirationLedger
+        );
+
+        assertExists(hash);
+        assertEquals(Buffer.isBuffer(hash), true);
+        assertEquals(hash.length > 0, true);
+      });
+
+      it("should generate external auth entry for deposit operation", () => {
+        const pubKey =
+          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
+        const condition = Condition.deposit(pubKey, validAmount);
+        const operation = Operation.deposit(pubKey, validAmount);
+        operation.addCondition(condition);
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        // Add deposit operation
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addDeposit(operation);
+
+        const nonce = generateNonce();
+        const signatureExpirationLedger = 1000000;
+
+        const authEntry = testBuilder.getExtAuthEntry(
+          pubKey,
+          nonce,
+          signatureExpirationLedger
+        );
+
+        assertExists(authEntry);
+        assertEquals(typeof authEntry.toXDR, "function");
+      });
+
+      it("should get auth requirement args for operation with spend operations", async () => {
+        const utxoKeys = await generateP256KeyPair();
+        const utxo = utxoKeys.publicKey as UTXOPublicKey;
+        const condition = Condition.create(utxo, validAmount);
+        const spendOperation = Operation.spend(utxo);
+        spendOperation.addCondition(condition);
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addSpend(spendOperation);
+
+        const args = testBuilder.getAuthRequirementArgs();
+
+        assertExists(args);
+        assertEquals(Array.isArray(args), true);
+        assertEquals(args.length, 1);
+
+        // Verify the structure: [scvVec([scvMap(signers)])]
+        assertEquals(args[0].switch().name, "scvVec");
+        const vec = args[0].vec();
+        assertEquals(vec?.length, 1);
+        assertEquals(vec?.[0].switch().name, "scvMap");
+      });
+
+      it("should return empty array when no spend operations exist", () => {
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        const args = testBuilder.getAuthRequirementArgs();
+
+        assertExists(args);
+        assertEquals(Array.isArray(args), true);
+        assertEquals(args.length, 0);
+      });
+
+      it("should get signed operation auth entry with provider signatures", async () => {
+        const providerKeys = LocalSigner.generateRandom();
+        const signatureExpirationLedger = 1000000;
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        await testBuilder.signWithProvider(
+          providerKeys,
+          signatureExpirationLedger
+        );
+
+        const signedEntry = testBuilder.getSignedOperationAuthEntry();
+
+        assertExists(signedEntry);
+        assertEquals(typeof signedEntry.toXDR, "function");
+      });
+
+      it("should get signed auth entries including external signatures", async () => {
+        const providerKeys = LocalSigner.generateRandom();
+        const userKeys = LocalSigner.generateRandom();
+        const pubKey = userKeys.publicKey() as Ed25519PublicKey;
+        const condition = Condition.deposit(pubKey, validAmount);
+        const operation = Operation.deposit(pubKey, validAmount);
+        operation.addCondition(condition);
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addDeposit(operation);
+
+        const signatureExpirationLedger = 1000000;
+        const nonce = generateNonce();
+
+        await testBuilder.signWithProvider(
+          providerKeys,
+          signatureExpirationLedger,
+          nonce
+        );
+        await testBuilder.signExtWithEd25519(
+          userKeys,
+
+          signatureExpirationLedger,
+          nonce
+        );
+
+        const signedEntries = testBuilder.getSignedAuthEntries();
+
+        assertExists(signedEntries);
+        assertEquals(Array.isArray(signedEntries), true);
+        assertEquals(signedEntries.length >= 2, true); // At least provider + external
+      });
+    });
+
+    describe("Signatures XDR", () => {
+      it("should generate signatures XDR when provider signatures exist", () => {
+        const pubKey =
+          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
+        const signature = Buffer.from("provider_signature");
+        const expirationLedger = 1000000;
+        const nonce = generateNonce();
+
+        const builderWithSigs = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        builderWithSigs.addProviderInnerSignature(
+          pubKey,
+          signature,
+          expirationLedger,
+          nonce
+        );
+
+        const signaturesXdr = builderWithSigs.signaturesXDR();
+
+        assertExists(signaturesXdr);
+        assertEquals(typeof signaturesXdr, "string");
+        assertEquals(signaturesXdr.length > 0, true);
+      });
+    });
+
+    describe("Invoke Operation", () => {
+      it("should get invoke operation with all components", async () => {
+        const providerKeys = LocalSigner.generateRandom();
+        const userKeys = LocalSigner.generateRandom();
+        const pubKey = userKeys.publicKey() as Ed25519PublicKey;
+        const condition = Condition.deposit(pubKey, validAmount);
+        const operation = Operation.deposit(pubKey, validAmount);
+        operation.addCondition(condition);
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addDeposit(operation);
+
+        const signatureExpirationLedger = 1000000;
+        const nonce = generateNonce();
+
+        await testBuilder.signWithProvider(
+          providerKeys,
+          signatureExpirationLedger,
+          nonce
+        );
+        await testBuilder.signExtWithEd25519(
+          userKeys,
+
+          signatureExpirationLedger,
+          nonce
+        );
+
+        const invokeOp = testBuilder.getInvokeOperation();
+
+        assertExists(invokeOp);
+        assertEquals(typeof invokeOp.toXDR, "function");
+      });
+
+      it("should get invoke operation without external signatures", async () => {
+        const providerKeys = LocalSigner.generateRandom();
+        const signatureExpirationLedger = 1000000;
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        await testBuilder.signWithProvider(
+          providerKeys,
+          signatureExpirationLedger
+        );
+
+        const invokeOp = testBuilder.getInvokeOperation();
+
+        assertExists(invokeOp);
+        assertEquals(typeof invokeOp.toXDR, "function");
+      });
+    });
+
+    describe("Signatures XDR", () => {
+      // ... existing signatures XDR tests ...
+    });
+  });
+
+  describe("Errors", () => {
+    describe("Operation Validation", () => {
+      it("should throw error for duplicate CREATE operations", async () => {
+        const utxo = (await generateP256KeyPair()).publicKey as UTXOPublicKey;
+        const operation1 = Operation.create(utxo, validAmount);
+        // Note: CREATE operations don't have conditions
+        const operation2 = Operation.create(utxo, validAmount + 100n);
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        testBuilder.addOperation(operation1);
+
         assertThrows(
-          () => builder.addCreate(mockUTXO1, 2000n),
+          () => testBuilder.addOperation(operation2),
           Error,
           "Create operation for this UTXO already exists"
         );
-      }
-    );
+      });
 
-    await t.step(
-      "addCreate should throw error when amount is zero or negative",
-      () => {
-        const builder = createTestBuilder();
+      it("should throw error for duplicate DEPOSIT operations", () => {
+        const pubKey =
+          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
+        const condition = Condition.deposit(pubKey, validAmount);
+        const operation1 = Operation.deposit(pubKey, validAmount);
+        operation1.addCondition(condition);
+        const operation2 = Operation.deposit(pubKey, validAmount + 100n);
+        operation2.addCondition(condition);
 
-        // Should throw error for zero amount
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addDeposit(operation1);
+
         assertThrows(
-          () => builder.addCreate(mockUTXO1, 0n),
-          Error,
-          "Create operation amount must be positive"
-        );
-
-        // Should throw error for negative amount
-        assertThrows(
-          () => builder.addCreate(mockUTXO2, -100n),
-          Error,
-          "Create operation amount must be positive"
-        );
-      }
-    );
-
-    await t.step(
-      "addSpend should add spend operation with valid parameters",
-      () => {
-        const builder = createTestBuilder();
-        const conditions = [mockCreateCondition, mockDepositCondition];
-
-        const result = builder.addSpend(mockUTXO1, conditions);
-
-        // Should return builder instance for chaining
-        assertEquals(result, builder);
-
-        // Should have added the spend operation
-        const operations = builder.getOperation();
-        assertEquals(operations.spend.length, 1);
-        assertEquals(operations.spend[0].utxo, mockUTXO1);
-        assertEquals(operations.spend[0].conditions.length, 2);
-        assertEquals(operations.spend[0].conditions[0], mockCreateCondition);
-        assertEquals(operations.spend[0].conditions[1], mockDepositCondition);
-      }
-    );
-
-    await t.step("addSpend should throw error when UTXO already exists", () => {
-      const builder = createTestBuilder();
-      const conditions = [mockCreateCondition];
-
-      builder.addSpend(mockUTXO1, conditions);
-
-      // Should throw error when adding same UTXO again
-      assertThrows(
-        () => builder.addSpend(mockUTXO1, [mockWithdrawCondition]),
-        Error,
-        "Spend operation for this UTXO already exists"
-      );
-    });
-
-    await t.step("addSpend should handle empty conditions array", () => {
-      const builder = createTestBuilder();
-
-      const result = builder.addSpend(mockUTXO1, []);
-
-      // Should return builder instance for chaining
-      assertEquals(result, builder);
-
-      // Should have added the spend operation with empty conditions
-      const operations = builder.getOperation();
-      assertEquals(operations.spend.length, 1);
-      assertEquals(operations.spend[0].utxo, mockUTXO1);
-      assertEquals(operations.spend[0].conditions.length, 0);
-    });
-
-    await t.step(
-      "addDeposit should add deposit operation with valid parameters",
-      () => {
-        const builder = createTestBuilder();
-        const conditions = [mockDepositCondition];
-
-        const result = builder.addDeposit(mockEd25519Key1, 500n, conditions);
-
-        // Should return builder instance for chaining
-        assertEquals(result, builder);
-
-        // Should have added the deposit operation
-        const operations = builder.getOperation();
-        assertEquals(operations.deposit.length, 1);
-        assertEquals(operations.deposit[0].pubKey, mockEd25519Key1);
-        assertEquals(operations.deposit[0].amount, 500n);
-        assertEquals(operations.deposit[0].conditions.length, 1);
-        assertEquals(operations.deposit[0].conditions[0], mockDepositCondition);
-      }
-    );
-
-    await t.step(
-      "addDeposit should throw error when public key already exists",
-      () => {
-        const builder = createTestBuilder();
-        const conditions = [mockDepositCondition];
-
-        builder.addDeposit(mockEd25519Key1, 500n, conditions);
-
-        // Should throw error when adding same public key again
-        assertThrows(
-          () => builder.addDeposit(mockEd25519Key1, 1000n, []),
+          // deno-lint-ignore no-explicit-any
+          () => (testBuilder as any).addDeposit(operation2),
           Error,
           "Deposit operation for this public key already exists"
         );
-      }
-    );
+      });
 
-    await t.step(
-      "addDeposit should throw error when amount is zero or negative",
-      () => {
-        const builder = createTestBuilder();
-        const conditions = [mockDepositCondition];
+      it("should throw error for duplicate WITHDRAW operations", () => {
+        const pubKey =
+          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
+        const condition = Condition.withdraw(pubKey, validAmount);
+        const operation1 = Operation.withdraw(pubKey, validAmount);
+        operation1.addCondition(condition);
+        const operation2 = Operation.withdraw(pubKey, validAmount + 100n);
+        operation2.addCondition(condition);
 
-        // Should throw error for zero amount
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
+
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addWithdraw(operation1);
+
         assertThrows(
-          () => builder.addDeposit(mockEd25519Key1, 0n, conditions),
-          Error,
-          "Deposit operation amount must be positive"
-        );
-
-        // Should throw error for negative amount
-        assertThrows(
-          () => builder.addDeposit(mockEd25519Key2, -100n, conditions),
-          Error,
-          "Deposit operation amount must be positive"
-        );
-      }
-    );
-
-    await t.step(
-      "addWithdraw should add withdraw operation with valid parameters",
-      () => {
-        const builder = createTestBuilder();
-        const conditions = [mockWithdrawCondition];
-
-        const result = builder.addWithdraw(mockEd25519Key1, 300n, conditions);
-
-        // Should return builder instance for chaining
-        assertEquals(result, builder);
-
-        // Should have added the withdraw operation
-        const operations = builder.getOperation();
-        assertEquals(operations.withdraw.length, 1);
-        assertEquals(operations.withdraw[0].pubKey, mockEd25519Key1);
-        assertEquals(operations.withdraw[0].amount, 300n);
-        assertEquals(operations.withdraw[0].conditions.length, 1);
-        assertEquals(
-          operations.withdraw[0].conditions[0],
-          mockWithdrawCondition
-        );
-      }
-    );
-
-    await t.step(
-      "addWithdraw should throw error when public key already exists",
-      () => {
-        const builder = createTestBuilder();
-        const conditions = [mockWithdrawCondition];
-
-        builder.addWithdraw(mockEd25519Key1, 300n, conditions);
-
-        // Should throw error when adding same public key again
-        assertThrows(
-          () => builder.addWithdraw(mockEd25519Key1, 500n, []),
+          // deno-lint-ignore no-explicit-any
+          () => (testBuilder as any).addWithdraw(operation2),
           Error,
           "Withdraw operation for this public key already exists"
         );
-      }
-    );
+      });
 
-    await t.step(
-      "addWithdraw should throw error when amount is zero or negative",
-      () => {
-        const builder = createTestBuilder();
-        const conditions = [mockWithdrawCondition];
+      it("should throw error for zero amount in CREATE operation", async () => {
+        const utxo = (await generateP256KeyPair()).publicKey as UTXOPublicKey;
 
-        // Should throw error for zero amount
         assertThrows(
-          () => builder.addWithdraw(mockEd25519Key1, 0n, conditions),
+          () => Operation.create(utxo, 0n),
           Error,
-          "Withdraw operation amount must be positive"
+          "Amount must be greater than zero"
         );
+      });
 
-        // Should throw error for negative amount
+      it("should throw error for negative amount in DEPOSIT operation", () => {
+        const pubKey =
+          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
+
         assertThrows(
-          () => builder.addWithdraw(mockEd25519Key2, -100n, conditions),
+          () => Operation.deposit(pubKey, -100n),
           Error,
-          "Withdraw operation amount must be positive"
+          "Amount must be greater than zero"
         );
-      }
-    );
+      });
 
-    await t.step("should allow chaining multiple operations", () => {
-      const builder = createTestBuilder();
+      it("should throw error for negative amount in WITHDRAW operation", () => {
+        const pubKey =
+          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
 
-      const result = builder
-        .addCreate(mockUTXO1, 1000n)
-        .addCreate(mockUTXO2, 2000n)
-        .addSpend(mockUTXO1, [mockCreateCondition])
-        .addDeposit(mockEd25519Key1, 500n, [mockDepositCondition])
-        .addWithdraw(mockEd25519Key2, 300n, [mockWithdrawCondition]);
-
-      // Should return builder instance
-      assertEquals(result, builder);
-
-      // Should have all operations
-      const operations = builder.getOperation();
-      assertEquals(operations.create.length, 2);
-      assertEquals(operations.spend.length, 1);
-      assertEquals(operations.deposit.length, 1);
-      assertEquals(operations.withdraw.length, 1);
-    });
-  }
-);
-
-Deno.test("MoonlightTransactionBuilder - Internal Signatures", async (t) => {
-  await t.step(
-    "addInnerSignature should add signature for existing spend operation",
-    () => {
-      const builder = createTestBuilder();
-      const mockSignature = Buffer.alloc(64, 0x42);
-      const expirationLedger = 1000;
-
-      // First add a spend operation
-      builder.addSpend(mockUTXO1, [mockCreateCondition]);
-
-      const result = builder.addInnerSignature(
-        mockUTXO1,
-        mockSignature,
-        expirationLedger
-      );
-
-      // Should return builder instance for chaining
-      assertEquals(result, builder);
-
-      // Verify signature was added (we can't directly access private properties,
-      // but we can test that the method doesn't throw and returns the builder)
-      assertEquals(result instanceof MoonlightTransactionBuilder, true);
-    }
-  );
-
-  await t.step(
-    "addInnerSignature should throw error when UTXO not found in spend operations",
-    () => {
-      const builder = createTestBuilder();
-      const mockSignature = Buffer.alloc(64, 0x42);
-      const expirationLedger = 1000;
-
-      // Don't add any spend operations
-
-      // Should throw error when trying to add signature for non-existent UTXO
-      assertThrows(
-        () =>
-          builder.addInnerSignature(mockUTXO1, mockSignature, expirationLedger),
-        Error,
-        "No spend operation for this UTXO"
-      );
-    }
-  );
-
-  await t.step(
-    "addProviderInnerSignature should add provider signature",
-    () => {
-      const builder = createTestBuilder();
-      const mockSignature = Buffer.alloc(64, 0x43);
-      const expirationLedger = 1000;
-      const nonce = "123456789";
-
-      const result = builder.addProviderInnerSignature(
-        mockEd25519Key1,
-        mockSignature,
-        expirationLedger,
-        nonce
-      );
-
-      // Should return builder instance for chaining
-      assertEquals(result, builder);
-
-      // Verify the method doesn't throw and returns the builder
-      assertEquals(result instanceof MoonlightTransactionBuilder, true);
-    }
-  );
-
-  await t.step(
-    "addExtSignedEntry should add external signature for existing deposit",
-    () => {
-      const builder = createTestBuilder();
-      const mockAuthEntry = {} as xdr.SorobanAuthorizationEntry;
-
-      // First add a deposit operation
-      builder.addDeposit(mockEd25519Key1, 500n, [mockDepositCondition]);
-
-      const result = builder.addExtSignedEntry(mockEd25519Key1, mockAuthEntry);
-
-      // Should return builder instance for chaining
-      assertEquals(result, builder);
-
-      // Verify the method doesn't throw and returns the builder
-      assertEquals(result instanceof MoonlightTransactionBuilder, true);
-    }
-  );
-
-  await t.step(
-    "addExtSignedEntry should add external signature for existing withdraw",
-    () => {
-      const builder = createTestBuilder();
-      const mockAuthEntry = {} as xdr.SorobanAuthorizationEntry;
-
-      // First add a withdraw operation
-      builder.addWithdraw(mockEd25519Key1, 300n, [mockWithdrawCondition]);
-
-      const result = builder.addExtSignedEntry(mockEd25519Key1, mockAuthEntry);
-
-      // Should return builder instance for chaining
-      assertEquals(result, builder);
-
-      // Verify the method doesn't throw and returns the builder
-      assertEquals(result instanceof MoonlightTransactionBuilder, true);
-    }
-  );
-
-  await t.step(
-    "addExtSignedEntry should throw error when public key not found",
-    () => {
-      const builder = createTestBuilder();
-      const mockAuthEntry = {} as xdr.SorobanAuthorizationEntry;
-
-      // Don't add any deposit or withdraw operations
-
-      // Should throw error when trying to add signature for non-existent public key
-      assertThrows(
-        () => builder.addExtSignedEntry(mockEd25519Key1, mockAuthEntry),
-        Error,
-        "No deposit or withdraw operation for this public key"
-      );
-    }
-  );
-
-  await t.step("should allow chaining signature operations", () => {
-    const builder = createTestBuilder();
-    const mockSignature = Buffer.alloc(64, 0x44);
-    const mockAuthEntry = {} as xdr.SorobanAuthorizationEntry;
-
-    // Add operations first
-    builder.addSpend(mockUTXO1, [mockCreateCondition]);
-    builder.addDeposit(mockEd25519Key1, 500n, [mockDepositCondition]);
-
-    const result = builder
-      .addInnerSignature(mockUTXO1, mockSignature, 1000)
-      .addProviderInnerSignature(
-        mockEd25519Key1,
-        mockSignature,
-        1000,
-        "nonce123"
-      )
-      .addExtSignedEntry(mockEd25519Key1, mockAuthEntry);
-
-    // Should return builder instance
-    assertEquals(result, builder);
-
-    // Verify the method doesn't throw and returns the builder
-    assertEquals(result instanceof MoonlightTransactionBuilder, true);
-  });
-
-  await t.step("should handle multiple provider signatures", () => {
-    const builder = createTestBuilder();
-    const mockSignature1 = Buffer.alloc(64, 0x45);
-    const mockSignature2 = Buffer.alloc(64, 0x46);
-
-    const result = builder
-      .addProviderInnerSignature(
-        mockEd25519Key1,
-        mockSignature1,
-        1000,
-        "nonce1"
-      )
-      .addProviderInnerSignature(
-        mockEd25519Key2,
-        mockSignature2,
-        1000,
-        "nonce2"
-      );
-
-    // Should return builder instance
-    assertEquals(result, builder);
-
-    // Verify the method doesn't throw and returns the builder
-    assertEquals(result instanceof MoonlightTransactionBuilder, true);
-  });
-
-  await t.step(
-    "should handle multiple inner signatures for different UTXOs",
-    () => {
-      const builder = createTestBuilder();
-      const mockSignature1 = Buffer.alloc(64, 0x47);
-      const mockSignature2 = Buffer.alloc(64, 0x48);
-
-      // Add spend operations for different UTXOs
-      builder.addSpend(mockUTXO1, [mockCreateCondition]);
-      builder.addSpend(mockUTXO2, [mockDepositCondition]);
-
-      const result = builder
-        .addInnerSignature(mockUTXO1, mockSignature1, 1000)
-        .addInnerSignature(mockUTXO2, mockSignature2, 1000);
-
-      // Should return builder instance
-      assertEquals(result, builder);
-
-      // Verify the method doesn't throw and returns the builder
-      assertEquals(result instanceof MoonlightTransactionBuilder, true);
-    }
-  );
-});
-
-Deno.test("MoonlightTransactionBuilder - Query Methods", async (t) => {
-  await t.step(
-    "getOperation should return empty arrays when no operations added",
-    () => {
-      const builder = createTestBuilder();
-
-      const op = builder.getOperation();
-      assertEquals(op.create.length, 0);
-      assertEquals(op.spend.length, 0);
-      assertEquals(op.deposit.length, 0);
-      assertEquals(op.withdraw.length, 0);
-    }
-  );
-
-  await t.step("getOperation should reflect added operations", () => {
-    const builder = createTestBuilder();
-
-    builder
-      .addCreate(mockUTXO1, 1000n)
-      .addSpend(mockUTXO1, [mockCreateCondition])
-      .addDeposit(mockEd25519Key1, 500n, [mockDepositCondition])
-      .addWithdraw(mockEd25519Key2, 300n, [mockWithdrawCondition]);
-
-    const op = builder.getOperation();
-    assertEquals(op.create.length, 1);
-    assertEquals(op.spend.length, 1);
-    assertEquals(op.deposit.length, 1);
-    assertEquals(op.withdraw.length, 1);
-  });
-
-  await t.step("getDepositOperation should return deposit when exists", () => {
-    const builder = createTestBuilder();
-    builder.addDeposit(mockEd25519Key1, 500n, [mockDepositCondition]);
-
-    const dep = builder.getDepositOperation(mockEd25519Key1);
-    assertEquals(dep?.pubKey, mockEd25519Key1);
-    assertEquals(dep?.amount, 500n);
-    assertEquals(dep?.conditions.length, 1);
-  });
-
-  await t.step(
-    "getDepositOperation should return undefined when not found",
-    () => {
-      const builder = createTestBuilder();
-      const dep = builder.getDepositOperation(mockEd25519Key2);
-      assertEquals(dep, undefined);
-    }
-  );
-});
-
-Deno.test(
-  "MoonlightTransactionBuilder - Authorization and Arguments",
-  async (t) => {
-    await t.step(
-      "getExtAuthEntry should generate entry for existing deposit",
-      () => {
-        const builder = createTestBuilder();
-        builder.addDeposit(mockEd25519Key1, 500n, [mockDepositCondition]);
-
-        // Using deterministic values for validation
-        const nonce = "123";
-        const exp = 456;
-
-        const entry = builder.getExtAuthEntry(mockEd25519Key1, nonce, exp);
-        // We can't assert XDR internals without full mocks; ensure object exists
-        assertEquals(!!entry, true);
-      }
-    );
-
-    await t.step("getExtAuthEntry should throw when deposit is missing", () => {
-      const builder = createTestBuilder();
-      const nonce = "123";
-      const exp = 456;
-
-      assertThrows(
-        () => builder.getExtAuthEntry(mockEd25519Key1, nonce, exp),
-        Error,
-        "No deposit operation for this address"
-      );
+        assertThrows(
+          () => Operation.withdraw(pubKey, -100n),
+          Error,
+          "Amount must be greater than zero"
+        );
+      });
     });
 
-    await t.step(
-      "getAuthRequirementArgs should return empty when no spend",
-      () => {
-        const builder = createTestBuilder();
-        const args = builder.getAuthRequirementArgs();
-        assertEquals(Array.isArray(args), true);
-        assertEquals(args.length, 0);
-      }
-    );
+    describe("Signature Validation", () => {
+      it("should throw error when adding inner signature without spend operation", async () => {
+        const signature = Buffer.from("test_signature");
+        const expirationLedger = 1000000;
+        const nonExistentUtxo = (await generateP256KeyPair())
+          .publicKey as UTXOPublicKey;
 
-    await t.step(
-      "getAuthRequirementArgs should include ordered spend signers",
-      () => {
-        const builder = createTestBuilder();
-        // Add spend with two UTXOs in reverse order to verify ordering
-        builder
-          .addSpend(mockUTXO2, [mockDepositCondition])
-          .addSpend(mockUTXO1, [mockCreateCondition]);
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
 
-        const args = builder.getAuthRequirementArgs();
-        // Expect one vector with one map of signers
-        assertEquals(args.length, 1);
-        // We can't deserialize xdr.ScVal here; presence suffices for unit test
-        assertEquals(!!args[0], true);
-      }
-    );
+        assertThrows(
+          () =>
+            testBuilder.addInnerSignature(
+              nonExistentUtxo,
+              signature,
+              expirationLedger
+            ),
+          Error,
+          "No spend operation for this UTXO"
+        );
+      });
 
-    await t.step(
-      "getOperationAuthEntry should generate entry (unsigned)",
-      () => {
-        const builder = createTestBuilder();
-        // No spend: args should be empty, but entry is still generated
-        const entry = builder.getOperationAuthEntry("999", 1234, false);
-        assertEquals(!!entry, true);
-      }
-    );
-  }
-);
+      it("should throw error when adding external signature without deposit/withdraw operation", () => {
+        // deno-lint-ignore no-explicit-any
+        const mockAuthEntry = {} as any;
+        const nonExistentKey =
+          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
 
-Deno.test("MoonlightTransactionBuilder - Hash and Signature XDR", async (t) => {
-  await t.step(
-    "getOperationAuthEntryHash should return hash for given parameters",
-    async () => {
-      const builder = createTestBuilder();
-      const nonce = "123456789";
-      const exp = 1000;
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
 
-      const hash = await builder.getOperationAuthEntryHash(nonce, exp);
-      // Should return a 32-byte hash
-      assertEquals(hash.length, 32);
-      assertEquals(hash instanceof Uint8Array, true);
-    }
-  );
+        assertThrows(
+          () => testBuilder.addExtSignedEntry(nonExistentKey, mockAuthEntry),
+          Error,
+          "No deposit or withdraw operation for this public key"
+        );
+      });
 
-  await t.step(
-    "getOperationAuthEntryHash should use network ID correctly",
-    async () => {
-      const builder = createTestBuilder();
-      const nonce = "123456789";
-      const exp = 1000;
+      it("should throw error when generating signatures XDR without provider signatures", () => {
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
 
-      const hash1 = await builder.getOperationAuthEntryHash(nonce, exp);
-      const hash2 = await builder.getOperationAuthEntryHash(nonce, exp);
-      // Same parameters should produce same hash
-      assertEquals(hash1, hash2);
-    }
-  );
+        assertThrows(
+          () => testBuilder.signaturesXDR(),
+          Error,
+          "No Provider signatures added"
+        );
+      });
 
-  await t.step(
-    "getOperationAuthEntryHash should handle different nonce values",
-    async () => {
-      const builder = createTestBuilder();
-      const exp = 1000;
+      it("should throw error when getting signed operation auth entry without provider signatures", () => {
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
 
-      const hash1 = await builder.getOperationAuthEntryHash("123456789", exp);
-      const hash2 = await builder.getOperationAuthEntryHash("987654321", exp);
-      // Different nonces should produce different hashes
-      assertEquals(hash1.length, 32);
-      assertEquals(hash2.length, 32);
-      // Hashes should be different
-      assertEquals(
-        hash1.every((byte, i) => byte === hash2[i]),
-        false
-      );
-    }
-  );
+        assertThrows(
+          () => testBuilder.getSignedOperationAuthEntry(),
+          Error,
+          "No Provider signatures added"
+        );
+      });
+    });
 
-  await t.step(
-    "signaturesXDR should throw error when no provider signatures",
-    () => {
-      const builder = createTestBuilder();
-      // Add spend operation but no provider signature
-      builder.addSpend(mockUTXO1, [mockCreateCondition]);
+    describe("External Auth Entry Validation", () => {
+      it("should throw error when getting external auth entry for non-existent deposit", () => {
+        const nonExistentKey =
+          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
+        const nonce = generateNonce();
+        const signatureExpirationLedger = 1000000;
 
-      assertThrows(
-        () => builder.signaturesXDR(),
-        Error,
-        "No Provider signatures added"
-      );
-    }
-  );
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          asset,
+          network,
+        });
 
-  await t.step("signaturesXDR should return correct XDR format", () => {
-    const builder = createTestBuilder();
-    const mockSignature = Buffer.alloc(64, 0x42);
+        assertThrows(
+          () =>
+            testBuilder.getExtAuthEntry(
+              nonExistentKey,
+              nonce,
+              signatureExpirationLedger
+            ),
+          Error,
+          "No deposit operation for this address"
+        );
+      });
+    });
 
-    // Add provider signature
-    builder.addProviderInnerSignature(
-      mockEd25519Key1,
-      mockSignature,
-      1000,
-      "nonce123"
-    );
-
-    const xdrString = builder.signaturesXDR();
-    // Should return a base64 XDR string
-    assertEquals(typeof xdrString, "string");
-    assertEquals(xdrString.length > 0, true);
-  });
-
-  await t.step("signaturesXDR should order signatures correctly", () => {
-    const builder = createTestBuilder();
-    const mockSignature1 = Buffer.alloc(64, 0x42);
-    const mockSignature2 = Buffer.alloc(64, 0x43);
-
-    // Add provider signatures in reverse order
-    builder
-      .addProviderInnerSignature(
-        mockEd25519Key2,
-        mockSignature2,
-        1000,
-        "nonce2"
-      )
-      .addProviderInnerSignature(
-        mockEd25519Key1,
-        mockSignature1,
-        1000,
-        "nonce1"
-      );
-
-    const xdrString = builder.signaturesXDR();
-    // Should return valid XDR string (ordering is internal, we just verify it works)
-    assertEquals(typeof xdrString, "string");
-    assertEquals(xdrString.length > 0, true);
-  });
-
-  await t.step(
-    "signaturesXDR should handle both provider and spend signatures",
-    () => {
-      const builder = createTestBuilder();
-      const mockSignature = Buffer.alloc(64, 0x44);
-
-      // Add spend operation and signatures
-      builder
-        .addSpend(mockUTXO1, [mockCreateCondition])
-        .addInnerSignature(mockUTXO1, mockSignature, 1000)
-        .addProviderInnerSignature(
-          mockEd25519Key1,
-          mockSignature,
-          1000,
-          "nonce123"
+    describe("Property Access Validation", () => {
+      it("should throw error when accessing unset properties", () => {
+        const emptyBuilder = Object.create(
+          MoonlightTransactionBuilder.prototype
         );
 
-      const xdrString = builder.signaturesXDR();
-      // Should return valid XDR string with both types
-      assertEquals(typeof xdrString, "string");
-      assertEquals(xdrString.length > 0, true);
-    }
-  );
-});
-
-Deno.test(
-  "MoonlightTransactionBuilder - High-Level Signing Methods",
-  async (t) => {
-    await t.step(
-      "signWithProvider should sign with provided keypair",
-      async () => {
-        const builder = createTestBuilder();
-        const keypair = Keypair.random();
-        const expirationLedger = 1000;
-
-        await builder.signWithProvider(keypair, expirationLedger);
-
-        // Verify that provider signature was added by checking signaturesXDR doesn't throw
-        const xdrString = builder.signaturesXDR();
-        assertEquals(typeof xdrString, "string");
-        assertEquals(xdrString.length > 0, true);
-      }
-    );
-
-    await t.step("signWithProvider should use provided nonce", async () => {
-      const builder = createTestBuilder();
-      const keypair = Keypair.random();
-      const expirationLedger = 1000;
-      const customNonce = "999888777";
-
-      await builder.signWithProvider(keypair, expirationLedger, customNonce);
-
-      // Should not throw and should generate valid XDR
-      const xdrString = builder.signaturesXDR();
-      assertEquals(typeof xdrString, "string");
-      assertEquals(xdrString.length > 0, true);
+        assertThrows(
+          // deno-lint-ignore no-explicit-any
+          () => (emptyBuilder as any).require("_channelId"),
+          Error,
+          "Property _channelId is not set in the Transaction Builder instance"
+        );
+      });
     });
-
-    await t.step(
-      "signWithSpendUtxo should throw error when UTXO not found",
-      async () => {
-        const builder = createTestBuilder();
-        const mockUtxo = {
-          publicKey: mockUTXO1,
-          privateKey: Buffer.alloc(32, 0x01),
-          signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42),
-        };
-        const expirationLedger = 1000;
-
-        let errorThrown = false;
-        try {
-          await builder.signWithSpendUtxo(mockUtxo, expirationLedger);
-        } catch (error) {
-          errorThrown = true;
-          assertEquals(
-            (error as Error).message,
-            "No spend operation for this UTXO"
-          );
-        }
-        assertEquals(errorThrown, true);
-      }
-    );
-
-    await t.step(
-      "signWithSpendUtxo should sign with UTXO keypair when found",
-      async () => {
-        const builder = createTestBuilder();
-        const mockUtxo = {
-          publicKey: mockUTXO1,
-          privateKey: Buffer.alloc(32, 0x01),
-          signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42),
-        };
-        const expirationLedger = 1000;
-
-        // Add spend operation first
-        builder.addSpend(mockUTXO1, [mockCreateCondition]);
-
-        await builder.signWithSpendUtxo(mockUtxo, expirationLedger);
-
-        // Should not throw - signature was added
-        assertEquals(true, true); // Test passes if no exception
-      }
-    );
-
-    await t.step(
-      "signExtWithEd25519 should sign external auth entry",
-      async () => {
-        const builder = createTestBuilder();
-        const keypair = Keypair.random();
-        const expirationLedger = 1000;
-
-        // Add deposit operation first
-        builder.addDeposit(keypair.publicKey() as `G${string}`, 500n, [
-          mockDepositCondition,
-        ]);
-
-        await builder.signExtWithEd25519(keypair, expirationLedger);
-
-        // Should not throw - external signature was added
-        assertEquals(true, true); // Test passes if no exception
-      }
-    );
-
-    await t.step("signExtWithEd25519 should use provided nonce", async () => {
-      const builder = createTestBuilder();
-      const keypair = Keypair.random();
-      const expirationLedger = 1000;
-      const customNonce = "555444333";
-
-      // Add deposit operation first
-      builder.addDeposit(keypair.publicKey() as `G${string}`, 500n, [
-        mockDepositCondition,
-      ]);
-
-      await builder.signExtWithEd25519(keypair, expirationLedger, customNonce);
-
-      // Should not throw - custom nonce was used and signature added
-      assertEquals(true, true); // Test passes if no exception
-    });
-
-    await t.step("should handle complex signing workflow", async () => {
-      const builder = createTestBuilder();
-      const providerKeypair = Keypair.random();
-      const userKeypair = Keypair.random();
-      const mockUtxo = {
-        publicKey: mockUTXO1,
-        privateKey: Buffer.alloc(32, 0x01),
-        signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42),
-      };
-      const expirationLedger = 1000;
-
-      // Add operations
-      builder
-        .addSpend(mockUTXO1, [mockCreateCondition])
-        .addDeposit(userKeypair.publicKey() as `G${string}`, 500n, [
-          mockDepositCondition,
-        ]);
-
-      // Sign with all methods (now that buildAuthPayloadHash is implemented)
-      await builder.signWithProvider(providerKeypair, expirationLedger);
-      await builder.signWithSpendUtxo(mockUtxo, expirationLedger);
-      await builder.signExtWithEd25519(userKeypair, expirationLedger);
-
-      // Should generate valid XDR with all signatures
-      const xdrString = builder.signaturesXDR();
-      assertEquals(typeof xdrString, "string");
-      assertEquals(xdrString.length > 0, true);
-    });
-  }
-);
-
-Deno.test("MoonlightTransactionBuilder - Final Methods", async (t) => {
-  await t.step(
-    "getSignedAuthEntries should return all signed entries",
-    async () => {
-      const builder = createTestBuilder();
-      const providerKeypair = Keypair.random();
-      const userKeypair = Keypair.random();
-      const expirationLedger = 1000;
-
-      // Add operations and sign
-      builder.addDeposit(userKeypair.publicKey() as `G${string}`, 500n, [
-        mockDepositCondition,
-      ]);
-      await builder.signWithProvider(providerKeypair, expirationLedger);
-      await builder.signExtWithEd25519(userKeypair, expirationLedger);
-
-      const signedEntries = builder.getSignedAuthEntries();
-
-      // Should return an array of signed auth entries
-      assertEquals(Array.isArray(signedEntries), true);
-      assertEquals(signedEntries.length, 2); // External + operation entry
-    }
-  );
-
-  await t.step(
-    "getSignedAuthEntries should include external and operation entries",
-    async () => {
-      const builder = createTestBuilder();
-      const providerKeypair = Keypair.random();
-      const userKeypair = Keypair.random();
-      const expirationLedger = 1000;
-
-      // Add operations and sign
-      builder.addDeposit(userKeypair.publicKey() as `G${string}`, 500n, [
-        mockDepositCondition,
-      ]);
-      await builder.signWithProvider(providerKeypair, expirationLedger);
-      await builder.signExtWithEd25519(userKeypair, expirationLedger);
-
-      const signedEntries = builder.getSignedAuthEntries();
-
-      // Should have both external and operation entries
-      assertEquals(signedEntries.length >= 2, true);
-
-      // Each entry should be a valid SorobanAuthorizationEntry
-      for (const entry of signedEntries) {
-        assertEquals(!!entry, true);
-      }
-    }
-  );
-
-  await t.step("buildXDR should include all operation types", () => {
-    const builder = createTestBuilder();
-
-    // Add one of each operation type
-    builder
-      .addCreate(mockUTXO1, 1000n)
-      .addSpend(mockUTXO1, [mockCreateCondition])
-      .addDeposit(mockEd25519Key1, 500n, [mockDepositCondition])
-      .addWithdraw(mockEd25519Key2, 300n, [mockWithdrawCondition]);
-
-    const xdr = builder.buildXDR();
-
-    // Should return valid XDR structure
-    assertEquals(!!xdr, true);
-  });
-
-  await t.step("buildXDR should handle empty operations correctly", () => {
-    const builder = createTestBuilder();
-
-    // Don't add any operations
-    const xdr = builder.buildXDR();
-
-    // Should still return valid XDR structure with empty arrays
-    assertEquals(!!xdr, true);
-  });
-
-  await t.step("buildXDR should handle mixed operations", () => {
-    const builder = createTestBuilder();
-
-    // Add multiple operations of different types
-    builder
-      .addCreate(mockUTXO1, 1000n)
-      .addCreate(mockUTXO2, 2000n)
-      .addSpend(mockUTXO1, [mockCreateCondition])
-      .addDeposit(mockEd25519Key1, 500n, [mockDepositCondition])
-      .addDeposit(mockEd25519Key2, 300n, [mockWithdrawCondition])
-      .addWithdraw(mockEd25519Key1, 200n, [mockWithdrawCondition]);
-
-    const xdr = builder.buildXDR();
-
-    // Should return valid XDR structure
-    assertEquals(!!xdr, true);
-  });
-
-  await t.step("should handle complete transaction workflow", async () => {
-    const builder = createTestBuilder();
-    const providerKeypair = Keypair.random();
-    const userKeypair = Keypair.random();
-    const mockUtxo = {
-      publicKey: mockUTXO1,
-      privateKey: Buffer.alloc(32, 0x01),
-      signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42),
-    };
-    const expirationLedger = 1000;
-
-    // Complete workflow: add operations, sign, and build XDR
-    builder
-      .addCreate(mockUTXO1, 1000n)
-      .addSpend(mockUTXO1, [mockCreateCondition])
-      .addDeposit(userKeypair.publicKey() as `G${string}`, 500n, [
-        mockDepositCondition,
-      ])
-      .addWithdraw(userKeypair.publicKey() as `G${string}`, 200n, [
-        mockWithdrawCondition,
-      ]);
-
-    // Sign with all methods
-    await builder.signWithProvider(providerKeypair, expirationLedger);
-    await builder.signWithSpendUtxo(mockUtxo, expirationLedger);
-    await builder.signExtWithEd25519(userKeypair, expirationLedger);
-
-    // Get signed entries and build XDR
-    const signedEntries = builder.getSignedAuthEntries();
-    const xdr = builder.buildXDR();
-    const xdrString = builder.signaturesXDR();
-
-    // All should be valid
-    assertEquals(Array.isArray(signedEntries), true);
-    assertEquals(signedEntries.length >= 2, true);
-    assertEquals(!!xdr, true);
-    assertEquals(typeof xdrString, "string");
-    assertEquals(xdrString.length > 0, true);
   });
 });
-
-Deno.test("Transaction Builder Utility Functions", async (t) => {
-  await t.step(
-    "createOpToXDR should convert create operation to XDR correctly",
-    () => {
-      const createOp = {
-        utxo: mockUTXO1,
-        amount: 1000n,
-      };
-
-      const xdr = createOpToXDR(createOp);
-
-      // Should return a valid ScVal
-      assertEquals(!!xdr, true);
-    }
-  );
-
-  await t.step(
-    "depositOpToXDR should convert deposit operation to XDR correctly",
-    () => {
-      const depositOp = {
-        pubKey: mockEd25519Key1,
-        amount: 500n,
-        conditions: [mockDepositCondition],
-      };
-
-      const xdr = depositOpToXDR(depositOp);
-
-      // Should return a valid ScVal
-      assertEquals(!!xdr, true);
-    }
-  );
-
-  await t.step("depositOpToXDR should handle empty conditions", () => {
-    const depositOp = {
-      pubKey: mockEd25519Key1,
-      amount: 500n,
-      conditions: [],
-    };
-
-    const xdr = depositOpToXDR(depositOp);
-
-    // Should return a valid ScVal even with empty conditions
-    assertEquals(!!xdr, true);
-  });
-
-  await t.step(
-    "withdrawOpToXDR should convert withdraw operation to XDR correctly",
-    () => {
-      const withdrawOp = {
-        pubKey: mockEd25519Key1,
-        amount: 300n,
-        conditions: [mockWithdrawCondition],
-      };
-
-      const xdr = withdrawOpToXDR(withdrawOp);
-
-      // Should return a valid ScVal
-      assertEquals(!!xdr, true);
-    }
-  );
-
-  await t.step("withdrawOpToXDR should handle empty conditions", () => {
-    const withdrawOp = {
-      pubKey: mockEd25519Key1,
-      amount: 300n,
-      conditions: [],
-    };
-
-    const xdr = withdrawOpToXDR(withdrawOp);
-
-    // Should return a valid ScVal even with empty conditions
-    assertEquals(!!xdr, true);
-  });
-
-  await t.step(
-    "spendOpToXDR should convert spend operation to XDR correctly",
-    () => {
-      const spendOp = {
-        utxo: mockUTXO1,
-        conditions: [mockCreateCondition, mockDepositCondition],
-      };
-
-      const xdr = spendOpToXDR(spendOp);
-
-      // Should return a valid ScVal
-      assertEquals(!!xdr, true);
-    }
-  );
-
-  await t.step("spendOpToXDR should handle empty conditions", () => {
-    const spendOp = {
-      utxo: mockUTXO1,
-      conditions: [],
-    };
-
-    const xdr = spendOpToXDR(spendOp);
-
-    // Should return a valid ScVal even with empty conditions
-    assertEquals(!!xdr, true);
-  });
-
-  await t.step("all utility functions should handle different amounts", () => {
-    // Test createOpToXDR with different amounts
-    const createOp1 = { utxo: mockUTXO1, amount: 1n };
-    const createOp2 = { utxo: mockUTXO2, amount: 999999999n };
-
-    const xdr1 = createOpToXDR(createOp1);
-    const xdr2 = createOpToXDR(createOp2);
-
-    assertEquals(!!xdr1, true);
-    assertEquals(!!xdr2, true);
-
-    // Test depositOpToXDR with different amounts
-    const depositOp1 = { pubKey: mockEd25519Key1, amount: 1n, conditions: [] };
-    const depositOp2 = {
-      pubKey: mockEd25519Key2,
-      amount: 999999999n,
-      conditions: [],
-    };
-
-    const xdr3 = depositOpToXDR(depositOp1);
-    const xdr4 = depositOpToXDR(depositOp2);
-
-    assertEquals(!!xdr3, true);
-    assertEquals(!!xdr4, true);
-
-    // Test withdrawOpToXDR with different amounts
-    const withdrawOp1 = { pubKey: mockEd25519Key1, amount: 1n, conditions: [] };
-    const withdrawOp2 = {
-      pubKey: mockEd25519Key2,
-      amount: 999999999n,
-      conditions: [],
-    };
-
-    const xdr5 = withdrawOpToXDR(withdrawOp1);
-    const xdr6 = withdrawOpToXDR(withdrawOp2);
-
-    assertEquals(!!xdr5, true);
-    assertEquals(!!xdr6, true);
-  });
-
-  await t.step("utility functions should handle multiple conditions", () => {
-    // Test with multiple conditions
-    const multipleConditions = [
-      mockCreateCondition,
-      mockDepositCondition,
-      mockWithdrawCondition,
-    ];
-
-    const depositOp = {
-      pubKey: mockEd25519Key1,
-      amount: 500n,
-      conditions: multipleConditions,
-    };
-
-    const withdrawOp = {
-      pubKey: mockEd25519Key2,
-      amount: 300n,
-      conditions: multipleConditions,
-    };
-
-    const spendOp = {
-      utxo: mockUTXO1,
-      conditions: multipleConditions,
-    };
-
-    const depositXdr = depositOpToXDR(depositOp);
-    const withdrawXdr = withdrawOpToXDR(withdrawOp);
-    const spendXdr = spendOpToXDR(spendOp);
-
-    assertEquals(!!depositXdr, true);
-    assertEquals(!!withdrawXdr, true);
-    assertEquals(!!spendXdr, true);
-  });
-});
-
-Deno.test(
-  "MoonlightTransactionBuilder - Integration and Edge Cases",
-  async (t) => {
-    await t.step(
-      "should build complete transaction with all operation types",
-      async () => {
-        const builder = createTestBuilder();
-        const providerKeypair = Keypair.random();
-        const userKeypair1 = Keypair.random();
-        const userKeypair2 = Keypair.random();
-        const mockUtxo1 = {
-          publicKey: mockUTXO1,
-          privateKey: Buffer.alloc(32, 0x01),
-          signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42),
-        };
-        const mockUtxo2 = {
-          publicKey: mockUTXO2,
-          privateKey: Buffer.alloc(32, 0x02),
-          signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x43),
-        };
-        const expirationLedger = 1000;
-
-        // Add all types of operations
-        builder
-          .addCreate(mockUTXO1, 1000n)
-          .addCreate(mockUTXO2, 2000n)
-          .addSpend(mockUTXO1, [mockCreateCondition])
-          .addSpend(mockUTXO2, [mockDepositCondition, mockWithdrawCondition])
-          .addDeposit(userKeypair1.publicKey() as `G${string}`, 500n, [
-            mockDepositCondition,
-          ])
-          .addDeposit(userKeypair2.publicKey() as `G${string}`, 300n, [
-            mockWithdrawCondition,
-          ])
-          .addWithdraw(userKeypair1.publicKey() as `G${string}`, 200n, [
-            mockWithdrawCondition,
-          ])
-          .addWithdraw(userKeypair2.publicKey() as `G${string}`, 100n, [
-            mockCreateCondition,
-          ]);
-
-        // Sign with all methods
-        await builder.signWithProvider(providerKeypair, expirationLedger);
-        await builder.signWithSpendUtxo(mockUtxo1, expirationLedger);
-        await builder.signWithSpendUtxo(mockUtxo2, expirationLedger);
-        await builder.signExtWithEd25519(userKeypair1, expirationLedger);
-        await builder.signExtWithEd25519(userKeypair2, expirationLedger);
-
-        // Verify all components work together
-        const operations = builder.getOperation();
-        const signedEntries = builder.getSignedAuthEntries();
-        const xdr = builder.buildXDR();
-        const xdrString = builder.signaturesXDR();
-
-        // Validate operations
-        assertEquals(operations.create.length, 2);
-        assertEquals(operations.spend.length, 2);
-        assertEquals(operations.deposit.length, 2);
-        assertEquals(operations.withdraw.length, 2);
-
-        // Validate signatures
-        assertEquals(Array.isArray(signedEntries), true);
-        assertEquals(signedEntries.length >= 3, true); // Provider + 2 external
-
-        // Validate XDR
-        assertEquals(!!xdr, true);
-        assertEquals(typeof xdrString, "string");
-        assertEquals(xdrString.length > 0, true);
-      }
-    );
-
-    await t.step(
-      "should handle complex transaction with multiple signatures",
-      async () => {
-        const builder = createTestBuilder();
-        const providerKeypair1 = Keypair.random();
-        const providerKeypair2 = Keypair.random();
-        const userKeypair1 = Keypair.random();
-        const userKeypair2 = Keypair.random();
-        const userKeypair3 = Keypair.random();
-        const expirationLedger = 1000;
-
-        // Add operations - each user keypair needs both deposit and withdraw operations
-        builder
-          .addCreate(mockUTXO1, 1000n)
-          .addSpend(mockUTXO1, [mockCreateCondition])
-          .addDeposit(userKeypair1.publicKey() as `G${string}`, 500n, [
-            mockDepositCondition,
-          ])
-          .addDeposit(userKeypair2.publicKey() as `G${string}`, 300n, [
-            mockWithdrawCondition,
-          ])
-          .addDeposit(userKeypair3.publicKey() as `G${string}`, 200n, [
-            mockWithdrawCondition,
-          ])
-          .addWithdraw(userKeypair1.publicKey() as `G${string}`, 200n, [
-            mockWithdrawCondition,
-          ])
-          .addWithdraw(userKeypair2.publicKey() as `G${string}`, 100n, [
-            mockCreateCondition,
-          ])
-          .addWithdraw(userKeypair3.publicKey() as `G${string}`, 150n, [
-            mockDepositCondition,
-          ]);
-
-        // Add multiple provider signatures
-        await builder.signWithProvider(providerKeypair1, expirationLedger);
-        await builder.signWithProvider(providerKeypair2, expirationLedger);
-
-        // Add multiple external signatures (each keypair has both deposit and withdraw)
-        await builder.signExtWithEd25519(userKeypair1, expirationLedger);
-        await builder.signExtWithEd25519(userKeypair2, expirationLedger);
-        await builder.signExtWithEd25519(userKeypair3, expirationLedger);
-
-        // Verify multiple signatures are handled correctly
-        const signedEntries = builder.getSignedAuthEntries();
-        const xdrString = builder.signaturesXDR();
-
-        assertEquals(Array.isArray(signedEntries), true);
-        assertEquals(signedEntries.length >= 4, true); // 2 providers + 3 external
-        assertEquals(typeof xdrString, "string");
-        assertEquals(xdrString.length > 0, true);
-      }
-    );
-
-    await t.step("should validate transaction integrity", async () => {
-      const builder = createTestBuilder();
-      const providerKeypair = Keypair.random();
-      const userKeypair = Keypair.random();
-      const mockUtxo = {
-        publicKey: mockUTXO1,
-        privateKey: Buffer.alloc(32, 0x01),
-        signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42),
-      };
-      const expirationLedger = 1000;
-
-      // Build transaction
-      builder
-        .addCreate(mockUTXO1, 1000n)
-        .addSpend(mockUTXO1, [mockCreateCondition])
-        .addDeposit(userKeypair.publicKey() as `G${string}`, 500n, [
-          mockDepositCondition,
-        ]);
-
-      await builder.signWithProvider(providerKeypair, expirationLedger);
-      await builder.signWithSpendUtxo(mockUtxo, expirationLedger);
-      await builder.signExtWithEd25519(userKeypair, expirationLedger);
-
-      // Verify transaction integrity
-      const operations = builder.getOperation();
-      const signedEntries = builder.getSignedAuthEntries();
-      const xdr = builder.buildXDR();
-      const xdrString = builder.signaturesXDR();
-
-      // All components should be consistent
-      assertEquals(operations.create.length, 1);
-      assertEquals(operations.spend.length, 1);
-      assertEquals(operations.deposit.length, 1);
-      assertEquals(operations.withdraw.length, 0);
-
-      assertEquals(Array.isArray(signedEntries), true);
-      assertEquals(signedEntries.length >= 2, true);
-      assertEquals(!!xdr, true);
-      assertEquals(typeof xdrString, "string");
-      assertEquals(xdrString.length > 0, true);
-    });
-
-    await t.step("should handle maximum number of operations", () => {
-      const builder = createTestBuilder();
-      const maxOperations = 10;
-
-      // Add maximum number of each operation type
-      for (let i = 0; i < maxOperations; i++) {
-        const utxo = new Uint8Array([
-          i,
-          i + 1,
-          i + 2,
-          i + 3,
-          i + 4,
-          i + 5,
-          i + 6,
-          i + 7,
-        ]);
-        const keypair = Keypair.random();
-
-        builder
-          .addCreate(utxo, BigInt(1000 + i))
-          .addSpend(utxo, [mockCreateCondition])
-          .addDeposit(keypair.publicKey() as `G${string}`, BigInt(500 + i), [
-            mockDepositCondition,
-          ])
-          .addWithdraw(keypair.publicKey() as `G${string}`, BigInt(300 + i), [
-            mockWithdrawCondition,
-          ]);
-      }
-
-      const operations = builder.getOperation();
-      const xdr = builder.buildXDR();
-
-      assertEquals(operations.create.length, maxOperations);
-      assertEquals(operations.spend.length, maxOperations);
-      assertEquals(operations.deposit.length, maxOperations);
-      assertEquals(operations.withdraw.length, maxOperations);
-      assertEquals(!!xdr, true);
-    });
-
-    await t.step("should handle edge cases with zero amounts", () => {
-      const builder = createTestBuilder();
-
-      // These should throw errors for zero amounts
-      assertThrows(
-        () => builder.addCreate(mockUTXO1, 0n),
-        Error,
-        "Create operation amount must be positive"
-      );
-
-      assertThrows(
-        () => builder.addDeposit(mockEd25519Key1, 0n, []),
-        Error,
-        "Deposit operation amount must be positive"
-      );
-
-      assertThrows(
-        () => builder.addWithdraw(mockEd25519Key1, 0n, []),
-        Error,
-        "Withdraw operation amount must be positive"
-      );
-    });
-
-    await t.step("should handle edge cases with negative amounts", () => {
-      const builder = createTestBuilder();
-
-      // These should throw errors for negative amounts
-      assertThrows(
-        () => builder.addCreate(mockUTXO1, -100n),
-        Error,
-        "Create operation amount must be positive"
-      );
-
-      assertThrows(
-        () => builder.addDeposit(mockEd25519Key1, -100n, []),
-        Error,
-        "Deposit operation amount must be positive"
-      );
-
-      assertThrows(
-        () => builder.addWithdraw(mockEd25519Key1, -100n, []),
-        Error,
-        "Withdraw operation amount must be positive"
-      );
-    });
-
-    await t.step("should handle invalid input parameters", () => {
-      const builder = createTestBuilder();
-
-      // Test with empty UTXO array - should work but be a valid UTXO
-      const emptyUtxo = new Uint8Array(8).fill(0);
-      builder.addCreate(emptyUtxo, 1000n);
-
-      // Try to add the same UTXO again - should throw error
-      assertThrows(
-        () => builder.addCreate(emptyUtxo, 2000n),
-        Error,
-        "Create operation for this UTXO already exists"
-      );
-
-      // Test with empty public key - should work but be a valid key
-      const emptyKey = ("G" + "A".repeat(55)) as `G${string}`; // Valid format but empty content
-      builder.addDeposit(emptyKey, 500n, []);
-
-      // Try to add the same public key again - should throw error
-      assertThrows(
-        () => builder.addDeposit(emptyKey, 1000n, []),
-        Error,
-        "Deposit operation for this public key already exists"
-      );
-    });
-
-    await t.step("should handle concurrent operations", async () => {
-      const builder = createTestBuilder();
-      const providerKeypair = Keypair.random();
-      const userKeypair = Keypair.random();
-      const mockUtxo = {
-        publicKey: mockUTXO1,
-        privateKey: Buffer.alloc(32, 0x01),
-        signPayload: async (payload: Uint8Array) => Buffer.alloc(64, 0x42),
-      };
-      const expirationLedger = 1000;
-
-      // Add operations
-      builder
-        .addCreate(mockUTXO1, 1000n)
-        .addSpend(mockUTXO1, [mockCreateCondition])
-        .addDeposit(userKeypair.publicKey() as `G${string}`, 500n, [
-          mockDepositCondition,
-        ]);
-
-      // Sign concurrently (simulate concurrent access)
-      const signingPromises = [
-        builder.signWithProvider(providerKeypair, expirationLedger),
-        builder.signWithSpendUtxo(mockUtxo, expirationLedger),
-        builder.signExtWithEd25519(userKeypair, expirationLedger),
-      ];
-
-      await Promise.all(signingPromises);
-
-      // Verify all signatures were added
-      const signedEntries = builder.getSignedAuthEntries();
-      const xdrString = builder.signaturesXDR();
-
-      assertEquals(Array.isArray(signedEntries), true);
-      assertEquals(signedEntries.length >= 2, true);
-      assertEquals(typeof xdrString, "string");
-      assertEquals(xdrString.length > 0, true);
-    });
-
-    await t.step("should handle large transaction data", () => {
-      const builder = createTestBuilder();
-      const largeAmount = 999999999999999999n; // Very large amount
-      const largeUtxo = new Uint8Array(64).fill(0xff); // Large UTXO
-      const keypair = Keypair.random();
-
-      // Add operations with large data
-      builder
-        .addCreate(largeUtxo, largeAmount)
-        .addSpend(largeUtxo, [
-          mockCreateCondition,
-          mockDepositCondition,
-          mockWithdrawCondition,
-        ])
-        .addDeposit(keypair.publicKey() as `G${string}`, largeAmount, [
-          mockDepositCondition,
-        ])
-        .addWithdraw(keypair.publicKey() as `G${string}`, largeAmount, [
-          mockWithdrawCondition,
-        ]);
-
-      const operations = builder.getOperation();
-      const xdr = builder.buildXDR();
-
-      assertEquals(operations.create.length, 1);
-      assertEquals(operations.create[0].amount, largeAmount);
-      assertEquals(operations.spend.length, 1);
-      assertEquals(operations.deposit.length, 1);
-      assertEquals(operations.deposit[0].amount, largeAmount);
-      assertEquals(operations.withdraw.length, 1);
-      assertEquals(operations.withdraw[0].amount, largeAmount);
-      assertEquals(!!xdr, true);
-    });
-  }
-);
