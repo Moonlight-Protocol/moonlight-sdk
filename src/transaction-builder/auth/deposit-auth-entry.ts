@@ -1,4 +1,4 @@
-import { xdr } from "@stellar/stellar-sdk";
+import type { xdr } from "@stellar/stellar-sdk";
 import { generateDepositAuthEntry } from "../../utils/auth/deposit-auth-entry.ts";
 
 export const buildDepositAuthEntry = (args: {
@@ -12,5 +12,3 @@ export const buildDepositAuthEntry = (args: {
 }): xdr.SorobanAuthorizationEntry => {
   return generateDepositAuthEntry(args);
 };
-
-
