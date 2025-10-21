@@ -118,7 +118,7 @@ export class MoonlightOperation implements BaseOperation {
     | Ed25519PublicKey
     | UTXOPublicKey
     | ConditionType[] {
-    if (this[arg]) return this[arg];
+    if (this[arg] !== undefined) return this[arg];
     throw new Error(`Property ${arg} is not set in the Operation instance`);
   }
 
