@@ -1,14 +1,15 @@
 import { StrKey, type Ed25519PublicKey } from "@colibri/core";
 import { nativeToScVal, xdr } from "@stellar/stellar-sdk";
-import type { UTXOPublicKey } from "../transaction-builder/types.ts";
+
 import { Buffer } from "node:buffer";
-import {
-  UTXOOperation,
-  type BaseCondition,
-  type CreateCondition,
-  type DepositCondition,
-  type WithdrawCondition,
+import type {
+  BaseCondition,
+  CreateCondition,
+  DepositCondition,
+  WithdrawCondition,
 } from "./types.ts";
+import { UTXOOperationType } from "../operation/types.ts";
+import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 
 /**
  * Represents a condition for UTXO operations in the Moonlight privacy protocol.
@@ -31,7 +32,7 @@ import {
  * ```
  */
 export class Condition implements BaseCondition {
-  private _op: UTXOOperation;
+  private _op: UTXOOperationType;
   private _amount: bigint;
   private _publicKey?: Ed25519PublicKey;
   private _utxo?: UTXOPublicKey;
@@ -53,7 +54,7 @@ export class Condition implements BaseCondition {
     publicKey,
     utxo,
   }: {
-    op: UTXOOperation;
+    op: UTXOOperationType;
     amount: bigint;
     publicKey?: Ed25519PublicKey;
     utxo?: UTXOPublicKey;
@@ -87,7 +88,7 @@ export class Condition implements BaseCondition {
    */
   static create(utxo: UTXOPublicKey, amount: bigint): CreateCondition {
     return new Condition({
-      op: UTXOOperation.CREATE,
+      op: UTXOOperationType.CREATE,
       utxo,
       amount,
     }) as CreateCondition;
@@ -120,7 +121,7 @@ export class Condition implements BaseCondition {
     }
 
     return new Condition({
-      op: UTXOOperation.DEPOSIT,
+      op: UTXOOperationType.DEPOSIT,
       publicKey,
       amount,
     }) as DepositCondition;
@@ -153,7 +154,7 @@ export class Condition implements BaseCondition {
       throw new Error("Invalid Ed25519 public key.");
     }
     return new Condition({
-      op: UTXOOperation.WITHDRAW,
+      op: UTXOOperationType.WITHDRAW,
       publicKey,
       amount,
     }) as WithdrawCondition;
@@ -172,13 +173,13 @@ export class Condition implements BaseCondition {
    * @throws {Error} If the requested property is not set
    * @private
    */
-  private require(arg: "_op"): UTXOOperation;
+  private require(arg: "_op"): UTXOOperationType;
   private require(arg: "_amount"): bigint;
   private require(arg: "_publicKey"): Ed25519PublicKey;
   private require(arg: "_utxo"): UTXOPublicKey;
   private require(
     arg: "_op" | "_amount" | "_publicKey" | "_utxo"
-  ): UTXOOperation | bigint | Ed25519PublicKey | UTXOPublicKey {
+  ): UTXOOperationType | bigint | Ed25519PublicKey | UTXOPublicKey {
     if (this[arg]) return this[arg];
     throw new Error(`Property ${arg} is not set in the Condition instance`);
   }
@@ -199,7 +200,7 @@ export class Condition implements BaseCondition {
    * console.log(condition.getOperation()); // "Create"
    * ```
    */
-  public getOperation(): UTXOOperation {
+  public getOperation(): UTXOOperationType {
     return this.require("_op");
   }
 
@@ -278,7 +279,7 @@ export class Condition implements BaseCondition {
   public toScVal(): xdr.ScVal {
     const actionScVal = xdr.ScVal.scvSymbol(this.getOperation());
     const addressScVal =
-      this.getOperation() === UTXOOperation.CREATE
+      this.getOperation() === UTXOOperationType.CREATE
         ? xdr.ScVal.scvBytes(Buffer.from(this.getUtxo()))
         : nativeToScVal(this.getPublicKey(), { type: "address" });
     const amountScVal = nativeToScVal(this.getAmount(), { type: "i128" });
@@ -330,7 +331,7 @@ export class Condition implements BaseCondition {
    * ```
    */
   public isCreate(): this is CreateCondition {
-    return this.getOperation() === UTXOOperation.CREATE;
+    return this.getOperation() === UTXOOperationType.CREATE;
   }
 
   /**
@@ -349,7 +350,7 @@ export class Condition implements BaseCondition {
    * ```
    */
   public isDeposit(): this is DepositCondition {
-    return this.getOperation() === UTXOOperation.DEPOSIT;
+    return this.getOperation() === UTXOOperationType.DEPOSIT;
   }
 
   /**
@@ -368,6 +369,6 @@ export class Condition implements BaseCondition {
    * ```
    */
   public isWithdraw(): this is WithdrawCondition {
-    return this.getOperation() === UTXOOperation.WITHDRAW;
+    return this.getOperation() === UTXOOperationType.WITHDRAW;
   }
 }
