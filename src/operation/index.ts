@@ -390,7 +390,7 @@ export class MoonlightOperation implements BaseOperation {
   private conditionsToScVal(): xdr.ScVal {
     return this.hasConditions()
       ? xdr.ScVal.scvVec(this.getConditions().map((c) => c.toScVal()))
-      : xdr.ScVal.scvVec(null);
+      : xdr.ScVal.scvVec([]);
   }
 
   private createToScVal(): xdr.ScVal {
