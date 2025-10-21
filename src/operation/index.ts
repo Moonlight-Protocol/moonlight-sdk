@@ -36,7 +36,9 @@ export class MoonlightOperation implements BaseOperation {
       throw new Error("Amount must be greater than zero");
     }
 
-    // Only Create operations can't have conditions
+    // Business rule: CREATE operations cannot have conditions.
+    // This is because conditions are only applicable to DEPOSIT, SPEND, and WITHDRAW operations.
+    // Attempting to add conditions to CREATE would violate the intended operation semantics.
     if (op !== UTXOOperationType.CREATE) this.setConditions([]);
 
     this._op = op;
