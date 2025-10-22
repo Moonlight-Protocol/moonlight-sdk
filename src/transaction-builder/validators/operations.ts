@@ -1,42 +1,48 @@
 import { Buffer } from "buffer";
-import { Condition } from "../../conditions/types.ts";
-import { UTXOPublicKey, Ed25519PublicKey } from "../types.ts";
+import type { UTXOPublicKey } from "../../core/utxo-keypair-base/types.ts";
+import type { Ed25519PublicKey } from "@colibri/core";
 
 export const assertPositiveAmount = (amount: bigint, context: string) => {
   if (amount <= 0n) throw new Error(`${context} amount must be positive`);
 };
 
 export const assertNoDuplicateCreate = (
-  existing: { utxo: UTXOPublicKey }[],
-  utxo: UTXOPublicKey,
+  existing: { getUtxo(): UTXOPublicKey }[],
+  op: { getUtxo(): UTXOPublicKey }
 ) => {
-  if (existing.find((c) => Buffer.from(c.utxo).equals(Buffer.from(utxo))))
+  if (
+    existing.find((c) =>
+      Buffer.from(c.getUtxo()).equals(Buffer.from(op.getUtxo()))
+    )
+  )
     throw new Error("Create operation for this UTXO already exists");
 };
 
 export const assertNoDuplicateSpend = (
-  existing: { utxo: UTXOPublicKey }[],
-  utxo: UTXOPublicKey,
+  existing: { getUtxo(): UTXOPublicKey }[],
+  op: { getUtxo(): UTXOPublicKey }
 ) => {
-  if (existing.find((s) => Buffer.from(s.utxo).equals(Buffer.from(utxo))))
+  if (
+    existing.find((s) =>
+      Buffer.from(s.getUtxo()).equals(Buffer.from(op.getUtxo()))
+    )
+  )
     throw new Error("Spend operation for this UTXO already exists");
 };
 
 export const assertNoDuplicatePubKey = (
-  existing: { pubKey: Ed25519PublicKey }[],
-  pubKey: Ed25519PublicKey,
-  context: string,
+  existing: { getPublicKey(): Ed25519PublicKey }[],
+  op: { getPublicKey(): Ed25519PublicKey },
+  context: string
 ) => {
-  if (existing.find((d) => d.pubKey === pubKey))
+  if (existing.find((d) => d.getPublicKey() === op.getPublicKey()))
     throw new Error(`${context} operation for this public key already exists`);
 };
 
 export const assertSpendExists = (
-  existing: { utxo: UTXOPublicKey; conditions: Condition[] }[],
-  utxo: UTXOPublicKey,
+  existing: { getUtxo(): UTXOPublicKey }[],
+  utxo: UTXOPublicKey
 ) => {
-  if (!existing.find((s) => Buffer.from(s.utxo).equals(Buffer.from(utxo))))
+  if (!existing.find((s) => Buffer.from(s.getUtxo()).equals(Buffer.from(utxo))))
     throw new Error("No spend operation for this UTXO");
 };
-
-

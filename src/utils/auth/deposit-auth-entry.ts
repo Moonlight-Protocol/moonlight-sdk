@@ -1,5 +1,5 @@
-import { xdr } from "@stellar/stellar-sdk";
-import { FnArg, InvocationParams, paramsToAuthEntry } from "./auth-entries.ts";
+import type { xdr } from "@stellar/stellar-sdk";
+import { xdr as xdrHelper } from "@colibri/core";
 
 export const generateDepositAuthEntry = ({
   channelId,
@@ -33,14 +33,14 @@ export const generateDepositAuthEntry = ({
             { value: depositor, type: "address" },
             { value: channelId, type: "address" },
             { value: amount, type: "i128" },
-          ] as FnArg[],
+          ] as xdrHelper.FnArg[],
         },
         subInvocations: [],
-      } as InvocationParams,
+      } as xdrHelper.InvocationParams,
     ],
-  } as InvocationParams;
+  } as xdrHelper.InvocationParams;
 
-  const entry = paramsToAuthEntry({
+  const entry = xdrHelper.paramsToAuthEntry({
     credentials: {
       address: depositor,
       nonce,

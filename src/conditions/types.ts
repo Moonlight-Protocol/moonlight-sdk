@@ -1,15 +1,11 @@
-
 import type { Ed25519PublicKey } from "@colibri/core";
-import type { UTXOPublicKey } from "../transaction-builder/types.ts";
+
 import type { xdr } from "@stellar/stellar-sdk";
-export enum UTXOOperation {
-  CREATE = "Create",
-  DEPOSIT = "Deposit",
-  WITHDRAW = "Withdraw",
-}
+import type { UTXOOperationType } from "../operation/types.ts";
+import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 
 export type BaseCondition = {
-  getOperation(): UTXOOperation;
+  getOperation(): UTXOOperationType;
   getAmount(): bigint;
   isCreate(): this is CreateCondition;
   isDeposit(): this is DepositCondition;
@@ -19,17 +15,17 @@ export type BaseCondition = {
 };
 
 export type CreateCondition = BaseCondition & {
-  getOperation(): UTXOOperation.CREATE;
+  getOperation(): UTXOOperationType.CREATE;
   getUtxo(): UTXOPublicKey;
 };
 
 export type DepositCondition = BaseCondition & {
-  getOperation(): UTXOOperation.DEPOSIT;
+  getOperation(): UTXOOperationType.DEPOSIT;
   getPublicKey(): Ed25519PublicKey;
 };
 
 export type WithdrawCondition = BaseCondition & {
-  getOperation(): UTXOOperation.WITHDRAW;
+  getOperation(): UTXOOperationType.WITHDRAW;
   getPublicKey(): Ed25519PublicKey;
 };
 

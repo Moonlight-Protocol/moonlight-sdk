@@ -35,9 +35,9 @@ import { PrivacyChannel } from "../../src/privacy-channel/index.ts";
 import { disableSanitizeConfig } from "../utils/disable-sanitize-config.ts";
 import { generateP256KeyPair } from "../../src/utils/secp256r1/generateP256KeyPair.ts";
 import { MoonlightTransactionBuilder } from "../../src/transaction-builder/index.ts";
-import { Condition } from "../../src/conditions/index.ts";
 import { Server } from "@stellar/stellar-sdk/rpc";
 import { generateNonce } from "../../src/utils/common/index.ts";
+import { MoonlightOperation as op } from "../../src/operation/index.ts";
 
 describe(
   "[Testnet - Integration] PrivacyChannel",
@@ -238,13 +238,16 @@ describe(
           asset: Asset.native(),
         });
 
-        depositTx.addDeposit(john.address() as Ed25519PublicKey, 500n, [
-          Condition.create(utxoAKeypair.publicKey, 250n),
-          Condition.create(utxoBKeypair.publicKey, 250n),
-        ]);
+        const createOpA = op.create(utxoAKeypair.publicKey, 250n);
+        const createOpB = op.create(utxoBKeypair.publicKey, 250n);
 
-        depositTx.addCreate(utxoAKeypair.publicKey, 250n);
-        depositTx.addCreate(utxoBKeypair.publicKey, 250n);
+        depositTx.addOperation(createOpA);
+        depositTx.addOperation(createOpB);
+        depositTx.addOperation(
+          op
+            .deposit(john.address() as Ed25519PublicKey, 500n)
+            .addConditions([createOpA.toCondition(), createOpB.toCondition()])
+        );
 
         const latestLedger = await rpc.getLatestLedger();
 

@@ -1,4 +1,4 @@
-import { xdr } from "@stellar/stellar-sdk";
+import type { xdr } from "@stellar/stellar-sdk";
 import { generateBundleAuthEntry } from "../../utils/auth/bundle-auth-entry.ts";
 
 export const buildBundleAuthEntry = (args: {
@@ -11,5 +11,3 @@ export const buildBundleAuthEntry = (args: {
 }): xdr.SorobanAuthorizationEntry => {
   return generateBundleAuthEntry(args);
 };
-
-

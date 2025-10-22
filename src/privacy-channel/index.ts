@@ -12,7 +12,7 @@ import {
   ChannelSpec,
 } from "./constants.ts";
 import type { ChannelInvoke, ChannelRead } from "./types.ts";
-import { xdr } from "@stellar/stellar-sdk";
+import type { xdr } from "@stellar/stellar-sdk";
 
 export class PrivacyChannel {
   private _client: Contract;

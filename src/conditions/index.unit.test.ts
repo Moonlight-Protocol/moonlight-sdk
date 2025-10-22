@@ -3,9 +3,9 @@ import { beforeAll, describe, it } from "@std/testing/bdd";
 import { LocalSigner } from "@colibri/core";
 import type { Ed25519PublicKey } from "@colibri/core";
 import { Condition } from "./index.ts";
-import { UTXOOperation } from "./types.ts";
-import type { UTXOPublicKey } from "../transaction-builder/types.ts";
 import { generateP256KeyPair } from "../utils/secp256r1/generateP256KeyPair.ts";
+import { UTXOOperationType } from "../operation/types.ts";
+import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 
 describe("Condition", () => {
   let validPublicKey: Ed25519PublicKey;
@@ -24,7 +24,7 @@ describe("Condition", () => {
       const condition = Condition.create(validUtxo, validAmount);
 
       assertExists(condition);
-      assertEquals(condition.getOperation(), UTXOOperation.CREATE);
+      assertEquals(condition.getOperation(), UTXOOperationType.CREATE);
       assertEquals(condition.getAmount(), validAmount);
       assertEquals(condition.getUtxo(), validUtxo);
       assertEquals(condition.isCreate(), true);
@@ -36,7 +36,7 @@ describe("Condition", () => {
       const condition = Condition.deposit(validPublicKey, validAmount);
 
       assertExists(condition);
-      assertEquals(condition.getOperation(), UTXOOperation.DEPOSIT);
+      assertEquals(condition.getOperation(), UTXOOperationType.DEPOSIT);
       assertEquals(condition.getAmount(), validAmount);
       assertEquals(condition.getPublicKey(), validPublicKey);
       assertEquals(condition.isCreate(), false);
@@ -48,7 +48,7 @@ describe("Condition", () => {
       const condition = Condition.withdraw(validPublicKey, validAmount);
 
       assertExists(condition);
-      assertEquals(condition.getOperation(), UTXOOperation.WITHDRAW);
+      assertEquals(condition.getOperation(), UTXOOperationType.WITHDRAW);
       assertEquals(condition.getAmount(), validAmount);
       assertEquals(condition.getPublicKey(), validPublicKey);
       assertEquals(condition.isCreate(), false);
@@ -63,9 +63,12 @@ describe("Condition", () => {
       const depositCondition = Condition.deposit(validPublicKey, validAmount);
       const withdrawCondition = Condition.withdraw(validPublicKey, validAmount);
 
-      assertEquals(createCondition.getOperation(), UTXOOperation.CREATE);
-      assertEquals(depositCondition.getOperation(), UTXOOperation.DEPOSIT);
-      assertEquals(withdrawCondition.getOperation(), UTXOOperation.WITHDRAW);
+      assertEquals(createCondition.getOperation(), UTXOOperationType.CREATE);
+      assertEquals(depositCondition.getOperation(), UTXOOperationType.DEPOSIT);
+      assertEquals(
+        withdrawCondition.getOperation(),
+        UTXOOperationType.WITHDRAW
+      );
     });
 
     it("should return correct amount for all condition types", () => {

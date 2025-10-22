@@ -1,4 +1,7 @@
-import type { IUTXOKeypairBase } from "../utxo-keypair-base/types.ts";
+import type {
+  IUTXOKeypairBase,
+  UTXOPublicKey,
+} from "../utxo-keypair-base/types.ts";
 
 /**
  * Interface for fetching balance information for UTXOs
@@ -10,7 +13,7 @@ export interface BalanceFetcher {
    * @param publicKey - The public key to fetch balance for
    * @returns Promise resolving to the balance as a bigint
    */
-  fetchBalance(publicKey: Uint8Array): Promise<bigint>;
+  fetchBalance(publicKey: UTXOPublicKey): Promise<bigint>;
 }
 
 export interface IUTXOKeypair<
