@@ -11,8 +11,8 @@ import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 
 export enum UTXOOperationType {
   CREATE = "Create",
-  DEPOSIT = "Deposit",
-  WITHDRAW = "Withdraw",
+  DEPOSIT = "ExtDeposit",
+  WITHDRAW = "ExtWithdraw",
   SPEND = "Spend",
 }
 
