@@ -12,7 +12,7 @@ export const enum AuthInvokeMethods {
   remove_provider = "remove_provider",
 }
 
-export const AuthSpec = new Spec([
+export const AuthSpec: Spec = new Spec([
   "AAAAAAAAAAAAAAAFYWRtaW4AAAAAAAAAAAAAAQAAABM=",
   "AAAAAAAAAAAAAAAJc2V0X2FkbWluAAAAAAAAAQAAAAAAAAAJbmV3X2FkbWluAAAAAAAAEwAAAAA=",
   "AAAAAAAAAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAAl3YXNtX2hhc2gAAAAAAAPuAAAAIAAAAAA=",

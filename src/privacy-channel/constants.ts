@@ -16,7 +16,7 @@ export const enum ChannelInvokeMethods {
   set_auth = "set_auth",
 }
 
-export const ChannelSpec = new Spec([
+export const ChannelSpec: Spec = new Spec([
   "AAAAAAAAAAAAAAAFYWRtaW4AAAAAAAAAAAAAAQAAABM=",
   "AAAAAAAAAAAAAAAJc2V0X2FkbWluAAAAAAAAAQAAAAAAAAAJbmV3X2FkbWluAAAAAAAAEwAAAAA=",
   "AAAAAAAAAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAAl3YXNtX2hhc2gAAAAAAAPuAAAAIAAAAAA=",
