@@ -7,7 +7,7 @@ import {
   assertThrows,
   assertRejects,
   assertExists,
-} from "https://deno.land/std@0.207.0/assert/mod.ts";
+} from "@std/assert";
 import { UtxoBasedAccount } from "./index.ts";
 import { UTXOStatus } from "../core/utxo-keypair/types.ts";
 import { StellarDerivator } from "../derivation/stellar/index.ts";

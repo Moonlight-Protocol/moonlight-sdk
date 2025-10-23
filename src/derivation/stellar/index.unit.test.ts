@@ -4,10 +4,7 @@ import {
   createForAccount,
 } from "./index.ts";
 import { StellarNetworkId } from "./stellar-network-id.ts";
-import {
-  assertEquals,
-  assertExists,
-} from "https://deno.land/std@0.220.1/assert/mod.ts";
+import { assertEquals, assertExists } from "@std/assert";
 
 // Constants for testing
 const TEST_SECRET_KEY =

@@ -1,5 +1,7 @@
+import { NetworkPassphrase } from "@colibri/core";
+
 export enum StellarNetworkId {
-  Mainnet = "Public Global Stellar Network ; September 2015",
-  Testnet = "Test SDF Network ; September 2015",
-  Futurenet = "Future Stellar Network ; September 2015",
+  Mainnet = NetworkPassphrase.MAINNET,
+  Testnet = NetworkPassphrase.TESTNET,
+  Futurenet = NetworkPassphrase.FUTURENET,
 }

@@ -1,6 +1,6 @@
 import { signPayload } from "../../utils/secp256r1/signPayload.ts";
 import { UTXOKeypairBase } from "../utxo-keypair-base/index.ts";
-import { BaseDerivator } from "../../derivation/base/index.ts";
+import type { BaseDerivator } from "../../derivation/base/index.ts";
 import {
   type BalanceFetcher,
   type IUTXOKeypair,

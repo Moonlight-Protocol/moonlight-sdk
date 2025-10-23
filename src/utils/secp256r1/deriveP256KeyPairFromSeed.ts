@@ -1,11 +1,10 @@
-import { p256 } from "jsr:@noble/curves@^1.7.1/p256";
-import { sha256 } from "jsr:@noble/hashes@^1.7.1/sha256";
-import { hkdf } from "jsr:@noble/hashes@^1.7.1/hkdf";
-import { mapHashToField } from "jsr:@noble/curves@^1.7.1/abstract/modular";
+import { p256 } from "@noble/curves/p256";
+import { sha256 } from "@noble/hashes/sha256";
+import { hkdf } from "@noble/hashes/hkdf";
+import { mapHashToField } from "@noble/curves/abstract/modular";
 
 import { bytesToBigIntBE } from "../conversion/bytesToBigIntBE.ts";
 import { numberToBytesBE } from "../conversion/numberToBytesBE.ts";
-import { UTXOKeypairBase } from "../../core/utxo-keypair-base/index.ts";
 import { encodePKCS8 } from "./encodePKCS8.ts";
 
 /**
@@ -36,5 +35,5 @@ export async function deriveP256KeyPairFromSeed(
   const pkcs8PrivateKey = encodePKCS8(rawPrivateKey, publicKey);
 
   // Return keypair components directly instead of creating a UTXOKeypair instance
-  return { privateKey: pkcs8PrivateKey, publicKey };
+  return await { privateKey: pkcs8PrivateKey, publicKey };
 }
