@@ -14,15 +14,18 @@ import type {
   TransactionConfig,
   ContractId,
 } from "@colibri/core";
-import {
-  AuthInvokeMethods,
-  AuthReadMethods,
-  AuthSpec,
-} from "../../src/channel-auth/constants.ts";
+
 import type { Buffer } from "node:buffer";
 import { loadContractWasm } from "../helpers/load-wasm.ts";
-import { ChannelAuth } from "../../src/channel-auth/index.ts";
-import type { ChannelAuthConstructorArgs } from "../../src/channel-auth/types.ts";
+
+import {
+  AuthSpec,
+  AuthReadMethods,
+  AuthInvokeMethods,
+  ChannelAuth,
+  type ChannelTypes,
+} from "../../mod.ts";
+
 import { disableSanitizeConfig } from "../utils/disable-sanitize-config.ts";
 
 describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
@@ -76,7 +79,7 @@ describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
         config: txConfig,
         constructorArgs: {
           admin: admin.address() as Ed25519PublicKey,
-        } as ChannelAuthConstructorArgs,
+        } as ChannelTypes.ChannelConstructorArgs,
       });
 
       authId = authContract.getContractId();

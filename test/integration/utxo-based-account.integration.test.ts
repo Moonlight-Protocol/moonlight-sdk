@@ -15,30 +15,29 @@ import {
   type TestNetConfig,
   type Ed25519SecretKey,
 } from "@colibri/core";
-import {
-  AuthInvokeMethods,
-  AuthSpec,
-} from "../../src/channel-auth/constants.ts";
+
 import { Buffer } from "node:buffer";
 import { loadContractWasm } from "../helpers/load-wasm.ts";
-import type { ChannelAuthConstructorArgs } from "../../src/channel-auth/types.ts";
-import type { ChannelConstructorArgs } from "../../src/privacy-channel/types.ts";
+import { Asset, Keypair } from "@stellar/stellar-sdk";
+import { Server } from "@stellar/stellar-sdk/rpc";
+import { disableSanitizeConfig } from "../utils/disable-sanitize-config.ts";
+
 import {
+  AuthSpec,
+  AuthInvokeMethods,
   ChannelInvokeMethods,
   ChannelReadMethods,
   ChannelSpec,
-} from "../../src/privacy-channel/constants.ts";
-import { Asset, Keypair } from "@stellar/stellar-sdk";
-import { PrivacyChannel } from "../../src/privacy-channel/index.ts";
-import { UtxoBasedStellarAccount } from "../../src/utxo-based-account/utxo-based-stellar-account/index.ts";
-import { UTXOStatus } from "../../src/core/utxo-keypair/types.ts";
-import { StellarDerivator } from "../../src/derivation/stellar/index.ts";
-import { MoonlightTransactionBuilder } from "../../src/transaction-builder/index.ts";
-import { MoonlightOperation as op } from "../../src/operation/index.ts";
-import { generateNonce } from "../../src/utils/common/index.ts";
-import { Server } from "@stellar/stellar-sdk/rpc";
-import { disableSanitizeConfig } from "../utils/disable-sanitize-config.ts";
-import { StellarNetworkId } from "../../src/derivation/stellar/stellar-network-id.ts";
+  UTXOStatus,
+  MoonlightTransactionBuilder,
+  MoonlightOperation as op,
+  generateNonce,
+  StellarDerivator,
+  StellarNetworkId,
+  UtxoBasedStellarAccount,
+  type ChannelTypes,
+  PrivacyChannel,
+} from "../../mod.ts";
 
 describe(
   "[Testnet - Integration] UtxoBasedAccount",
@@ -114,7 +113,7 @@ describe(
         config: txConfig,
         constructorArgs: {
           admin: admin.address() as Ed25519PublicKey,
-        } as ChannelAuthConstructorArgs,
+        } as ChannelTypes.ChannelConstructorArgs,
       });
 
       authId = authContract.getContractId();
@@ -153,7 +152,7 @@ describe(
             admin: admin.address() as Ed25519PublicKey,
             auth_contract: authId,
             asset: assetId,
-          } as ChannelConstructorArgs,
+          } as ChannelTypes.ChannelConstructorArgs,
         });
 
         channelId = channelContract.getContractId();

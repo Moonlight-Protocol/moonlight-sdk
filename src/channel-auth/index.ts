@@ -119,7 +119,7 @@ export class ChannelAuth {
     method: M;
     methodArgs: AuthInvoke[M]["input"];
     config: TransactionConfig;
-  }) {
+  }): Promise<ReturnType<Contract["invoke"]>> {
     return await this.getClient().invoke(args);
   }
 }

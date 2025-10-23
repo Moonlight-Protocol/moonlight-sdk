@@ -23,21 +23,22 @@ import {
 } from "../../src/channel-auth/constants.ts";
 import type { Buffer } from "node:buffer";
 import { loadContractWasm } from "../helpers/load-wasm.ts";
-import type { ChannelAuthConstructorArgs } from "../../src/channel-auth/types.ts";
-import type { ChannelConstructorArgs } from "../../src/privacy-channel/types.ts";
 import {
-  ChannelInvokeMethods,
-  ChannelReadMethods,
   ChannelSpec,
-} from "../../src/privacy-channel/constants.ts";
+  type ChannelTypes,
+  PrivacyChannel,
+  ChannelReadMethods,
+  generateP256KeyPair,
+  MoonlightTransactionBuilder,
+  MoonlightOperation as op,
+  generateNonce,
+  ChannelInvokeMethods,
+} from "../../mod.ts";
+
 import { Asset, Keypair } from "@stellar/stellar-sdk";
-import { PrivacyChannel } from "../../src/privacy-channel/index.ts";
+
 import { disableSanitizeConfig } from "../utils/disable-sanitize-config.ts";
-import { generateP256KeyPair } from "../../src/utils/secp256r1/generateP256KeyPair.ts";
-import { MoonlightTransactionBuilder } from "../../src/transaction-builder/index.ts";
 import { Server } from "@stellar/stellar-sdk/rpc";
-import { generateNonce } from "../../src/utils/common/index.ts";
-import { MoonlightOperation as op } from "../../src/operation/index.ts";
 
 describe(
   "[Testnet - Integration] PrivacyChannel",
@@ -113,7 +114,7 @@ describe(
         config: txConfig,
         constructorArgs: {
           admin: admin.address() as Ed25519PublicKey,
-        } as ChannelAuthConstructorArgs,
+        } as ChannelTypes.ChannelConstructorArgs,
       });
 
       authId = authContract.getContractId();
@@ -147,7 +148,7 @@ describe(
             admin: admin.address() as Ed25519PublicKey,
             auth_contract: authId,
             asset: assetId,
-          } as ChannelConstructorArgs,
+          } as ChannelTypes.ChannelConstructorArgs,
         });
 
         channelId = channelContract.getContractId();

@@ -302,7 +302,7 @@ export class MoonlightTransactionBuilder {
   // - Methods
   //==========================================
 
-  addOperation(op: MoonlightOperation) {
+  addOperation(op: MoonlightOperation): MoonlightTransactionBuilder {
     if (op.isCreate()) return this.addCreate(op);
     if (op.isSpend()) return this.addSpend(op);
     if (op.isDeposit()) return this.addDeposit(op);
@@ -310,7 +310,7 @@ export class MoonlightTransactionBuilder {
     throw new Error("Unsupported operation type");
   }
 
-  private addCreate(op: CreateOperation) {
+  private addCreate(op: CreateOperation): MoonlightTransactionBuilder {
     assertNoDuplicateCreate(this.getCreateOperations(), op);
     assertPositiveAmount(op.getAmount(), "Create operation");
 
@@ -318,14 +318,14 @@ export class MoonlightTransactionBuilder {
     return this;
   }
 
-  private addSpend(op: SpendOperation) {
+  private addSpend(op: SpendOperation): MoonlightTransactionBuilder {
     assertNoDuplicateSpend(this.getSpendOperations(), op);
 
     this.setSpendOperations([...this.getSpendOperations(), op]);
     return this;
   }
 
-  private addDeposit(op: DepositOperation) {
+  private addDeposit(op: DepositOperation): MoonlightTransactionBuilder {
     assertNoDuplicatePubKey(this.getDepositOperations(), op, "Deposit");
     assertPositiveAmount(op.getAmount(), "Deposit operation");
 
@@ -333,7 +333,7 @@ export class MoonlightTransactionBuilder {
     return this;
   }
 
-  private addWithdraw(op: WithdrawOperation) {
+  private addWithdraw(op: WithdrawOperation): MoonlightTransactionBuilder {
     assertNoDuplicatePubKey(this.getWithdrawOperations(), op, "Withdraw");
     assertPositiveAmount(op.getAmount(), "Withdraw operation");
 
@@ -345,7 +345,7 @@ export class MoonlightTransactionBuilder {
     utxo: UTXOPublicKey,
     signature: Buffer,
     expirationLedger: number
-  ) {
+  ): MoonlightTransactionBuilder {
     assertSpendExists(this.getSpendOperations(), utxo);
 
     this.innerSignatures.set(utxo, {
@@ -360,7 +360,7 @@ export class MoonlightTransactionBuilder {
     signature: Buffer,
     expirationLedger: number,
     nonce: string
-  ) {
+  ): MoonlightTransactionBuilder {
     this.providerInnerSignatures.set(pubKey, {
       sig: signature,
       exp: expirationLedger,
@@ -372,7 +372,7 @@ export class MoonlightTransactionBuilder {
   public addExtSignedEntry(
     pubKey: Ed25519PublicKey,
     signedAuthEntry: xdr.SorobanAuthorizationEntry
-  ) {
+  ): MoonlightTransactionBuilder {
     if (
       !this.getDepositOperations().find((d) => d.getPublicKey() === pubKey) &&
       !this.getWithdrawOperations().find((d) => d.getPublicKey() === pubKey)

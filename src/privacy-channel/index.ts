@@ -178,7 +178,7 @@ export class PrivacyChannel {
     methodArgs: ChannelInvoke[M]["input"];
     auth?: xdr.SorobanAuthorizationEntry[];
     config: TransactionConfig;
-  }) {
+  }): Promise<ReturnType<Contract["invoke"]>> {
     return await this.getClient().invoke(args);
   }
 
@@ -200,7 +200,7 @@ export class PrivacyChannel {
       auth?: xdr.SorobanAuthorizationEntry[];
     };
     config: TransactionConfig;
-  }) {
+  }): Promise<ReturnType<Contract["invoke"]>> {
     return await this.getClient().invokeRaw(args);
   }
 }
