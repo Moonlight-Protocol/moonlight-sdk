@@ -20,7 +20,7 @@ jobs:
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: v1.x
+          deno-version: 2.2.2
 
       - name: Detect version bump
         run: |
@@ -32,7 +32,7 @@ jobs:
           fi
 
       - name: Publish package
-        run: npx jsr publish --allow-slow-types
+        run: deno publish --allow-slow-types
 
       - name: Create tag and release
         if: env.VERSION_IS_UPDATED == 'true'
