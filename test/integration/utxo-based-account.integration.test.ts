@@ -1,6 +1,6 @@
 // deno-lint-ignore-file require-await
-import { assertEquals, assertExists } from "https://deno.land/std@0.207.0/assert/mod.ts";
-import { beforeAll, describe, it } from "https://deno.land/std@0.207.0/testing/bdd.ts";
+import { assertEquals, assertExists } from "@std/assert";
+import { beforeAll, describe, it } from "@std/testing/bdd";
 
 import {
   LocalSigner,
@@ -182,7 +182,7 @@ describe(
 
       it("should initialize UtxoBasedStellarAccount", () => {
         const testRoot = "S-TEST_SECRET_ROOT";
-        
+
         const utxoAccount = new UtxoBasedStellarAccount({
           derivator: channelClient.getDerivator(),
           root: testRoot,
@@ -205,13 +205,13 @@ describe(
 
       it("should derive a batch of UTXO keypairs", async () => {
         const testRoot = "S-TEST_SECRET_ROOT_2";
-        
+
         // Create a fresh derivator for this test
         const stelalrDerivator = new StellarDerivator().withNetworkAndContract(
           StellarNetworkId.Testnet,
           channelId
         );
-        
+
         const utxoAccount = new UtxoBasedStellarAccount({
           derivator: stelalrDerivator,
           root: testRoot,
@@ -254,13 +254,13 @@ describe(
       it("should deposit to UTXO and verify state transition to UNSPENT", async () => {
         const testRoot = "S-TEST_SECRET_ROOT_3";
         const depositAmount = 500000n; // 0.05 XLM
-        
+
         // Create a fresh derivator for this test
         const freshDerivator = new StellarDerivator().withNetworkAndContract(
           StellarNetworkId.Testnet,
           channelId
         );
-        
+
         const utxoAccount = new UtxoBasedStellarAccount({
           derivator: freshDerivator,
           root: testRoot,
@@ -281,7 +281,7 @@ describe(
         await utxoAccount.deriveBatch({ startIndex: 0, count: 1 });
         const freeUtxos = utxoAccount.getUTXOsByState(UTXOStatus.FREE);
         assertEquals(freeUtxos.length, 1, "Should have one FREE UTXO");
-        
+
         const testUtxo = freeUtxos[0];
         assertExists(testUtxo, "Should have a test UTXO");
 
@@ -360,20 +360,24 @@ describe(
         // Verify the UTXO state changed to UNSPENT
         const unspentUtxos = utxoAccount.getUTXOsByState(UTXOStatus.UNSPENT);
         assertEquals(unspentUtxos.length, 1, "Should have one UNSPENT UTXO");
-        
+
         const unspentUtxo = unspentUtxos[0];
-        assertEquals(unspentUtxo.balance, depositAmount, "UTXO should have correct balance");
+        assertEquals(
+          unspentUtxo.balance,
+          depositAmount,
+          "UTXO should have correct balance"
+        );
       });
 
       it("should calculate total balance across UNSPENT UTXOs", async () => {
         const testRoot = "S-TEST_SECRET_ROOT_4";
-        
+
         // Create a fresh derivator for this test
         const stellarDerivator = new StellarDerivator().withNetworkAndContract(
           StellarNetworkId.Testnet,
           channelId
         );
-        
+
         const utxoAccount = new UtxoBasedStellarAccount({
           derivator: stellarDerivator,
           root: testRoot,
@@ -472,13 +476,13 @@ describe(
       it("should withdraw from UNSPENT UTXO and verify state to SPENT", async () => {
         const testRoot = "S-TEST_SECRET_ROOT_5";
         const depositAmount = 500000n; // 0.05 XLM
-        
+
         // Create a fresh derivator for this test
         const stellarDerivator = new StellarDerivator().withNetworkAndContract(
           StellarNetworkId.Testnet,
           channelId
         );
-        
+
         const utxoAccount = new UtxoBasedStellarAccount({
           derivator: stellarDerivator,
           root: testRoot,
@@ -499,7 +503,7 @@ describe(
         await utxoAccount.deriveBatch({ startIndex: 0, count: 1 });
         const freeUtxos = utxoAccount.getUTXOsByState(UTXOStatus.FREE);
         assertEquals(freeUtxos.length, 1, "Should have one FREE UTXO");
-        
+
         const testUtxo = freeUtxos[0];
 
         // First deposit to the UTXO
@@ -557,7 +561,11 @@ describe(
             utxo: Buffer.from(testUtxo.publicKey),
           },
         });
-        assertEquals(balanceBeforeWithdraw, depositAmount, "UTXO should have balance before withdraw");
+        assertEquals(
+          balanceBeforeWithdraw,
+          depositAmount,
+          "UTXO should have balance before withdraw"
+        );
 
         // Now withdraw from the UTXO
         const withdrawTx = new MoonlightTransactionBuilder({
@@ -575,10 +583,7 @@ describe(
         withdrawTx.addOperation(spendOp).addOperation(withdrawOp);
 
         // Sign with the UTXO keypair
-        await withdrawTx.signWithSpendUtxo(
-          testUtxo,
-          signatureExpirationLedger
-        );
+        await withdrawTx.signWithSpendUtxo(testUtxo, signatureExpirationLedger);
 
         await withdrawTx.signWithProvider(
           providerKeys,
@@ -587,23 +592,25 @@ describe(
         );
 
         // Execute the withdraw transaction
-        await channelClient.invokeRaw({
-          operationArgs: {
-            function: ChannelInvokeMethods.transact,
-            args: [withdrawTx.buildXDR()],
-            auth: [...withdrawTx.getSignedAuthEntries()],
-          },
-          config: txConfig,
-        }).catch((e) => {
-          if (e instanceof P_SimulateTransactionErrors.SIMULATION_FAILED) {
-            console.error("Error invoking withdraw contract:", e);
-            console.error(
-              "Transaction XDR:",
-              e.meta.data.input.transaction.toXDR()
-            );
-          }
-          throw e;
-        });
+        await channelClient
+          .invokeRaw({
+            operationArgs: {
+              function: ChannelInvokeMethods.transact,
+              args: [withdrawTx.buildXDR()],
+              auth: [...withdrawTx.getSignedAuthEntries()],
+            },
+            config: txConfig,
+          })
+          .catch((e) => {
+            if (e instanceof P_SimulateTransactionErrors.SIMULATION_FAILED) {
+              console.error("Error invoking withdraw contract:", e);
+              console.error(
+                "Transaction XDR:",
+                e.meta.data.input.transaction.toXDR()
+              );
+            }
+            throw e;
+          });
 
         // Update UTXO state to SPENT
         utxoAccount.updateUTXOState(0, UTXOStatus.SPENT, 0n);
@@ -625,20 +632,20 @@ describe(
         // Verify the UTXO state changed to SPENT
         const spentUtxos = utxoAccount.getUTXOsByState(UTXOStatus.SPENT);
         assertEquals(spentUtxos.length, 1, "Should have one SPENT UTXO");
-        
+
         const spentUtxo = spentUtxos[0];
         assertEquals(spentUtxo.balance, 0n, "SPENT UTXO should have 0 balance");
       });
 
       it("should batch load UTXO balances from contract", async () => {
         const testRoot = "S-TEST_SECRET_ROOT_6";
-        
+
         // Create a fresh derivator for this test
         const stellarDerivator = new StellarDerivator().withNetworkAndContract(
           StellarNetworkId.Testnet,
           channelId
         );
-        
+
         const utxoAccount = new UtxoBasedStellarAccount({
           derivator: stellarDerivator,
           root: testRoot,
@@ -713,11 +720,19 @@ describe(
 
         // Verify that 2 UTXOs are UNSPENT (have balances)
         const unspentUtxos = utxoAccount.getUTXOsByState(UTXOStatus.UNSPENT);
-        assertEquals(unspentUtxos.length, 2, "Should have 2 UNSPENT UTXOs after batchLoad");
+        assertEquals(
+          unspentUtxos.length,
+          2,
+          "Should have 2 UNSPENT UTXOs after batchLoad"
+        );
 
         // Verify that 3 UTXOs are still FREE (no balances)
         const freeUtxosAfterLoad = utxoAccount.getUTXOsByState(UTXOStatus.FREE);
-        assertEquals(freeUtxosAfterLoad.length, 3, "Should have 3 FREE UTXOs after batchLoad");
+        assertEquals(
+          freeUtxosAfterLoad.length,
+          3,
+          "Should have 3 FREE UTXOs after batchLoad"
+        );
 
         // Verify the balances are correct
         for (let i = 0; i < 2; i++) {
@@ -742,13 +757,13 @@ describe(
     describe("Advanced Features", () => {
       it("should handle multiple deposits and withdrawals across different UTXOs", async () => {
         const testRoot = "S-TEST_SECRET_ROOT_7";
-        
+
         // Create a fresh derivator for this test
         const stellarDerivator = new StellarDerivator().withNetworkAndContract(
           StellarNetworkId.Testnet,
           channelId
         );
-        
+
         const utxoAccount = new UtxoBasedStellarAccount({
           derivator: stellarDerivator,
           root: testRoot,
@@ -821,13 +836,27 @@ describe(
         }
 
         // Step 3: Verify states after deposits (3 UNSPENT, 2 FREE)
-        const unspentAfterDeposits = utxoAccount.getUTXOsByState(UTXOStatus.UNSPENT);
+        const unspentAfterDeposits = utxoAccount.getUTXOsByState(
+          UTXOStatus.UNSPENT
+        );
         const freeAfterDeposits = utxoAccount.getUTXOsByState(UTXOStatus.FREE);
-        assertEquals(unspentAfterDeposits.length, 3, "Should have 3 UNSPENT UTXOs after deposits");
-        assertEquals(freeAfterDeposits.length, 2, "Should have 2 FREE UTXOs after deposits");
+        assertEquals(
+          unspentAfterDeposits.length,
+          3,
+          "Should have 3 UNSPENT UTXOs after deposits"
+        );
+        assertEquals(
+          freeAfterDeposits.length,
+          2,
+          "Should have 2 FREE UTXOs after deposits"
+        );
 
         const totalAfterDeposits = utxoAccount.getTotalBalance();
-        assertEquals(totalAfterDeposits, 600000n, "Total balance should be 600000 after deposits");
+        assertEquals(
+          totalAfterDeposits,
+          600000n,
+          "Total balance should be 600000 after deposits"
+        );
 
         // Step 4: Withdraw from first 2 UTXOs
         for (let i = 0; i < 2; i++) {
@@ -874,16 +903,36 @@ describe(
         }
 
         // Step 5: Verify states after withdraws (1 UNSPENT, 2 SPENT, 2 FREE)
-        const unspentAfterWithdraws = utxoAccount.getUTXOsByState(UTXOStatus.UNSPENT);
-        const spentAfterWithdraws = utxoAccount.getUTXOsByState(UTXOStatus.SPENT);
+        const unspentAfterWithdraws = utxoAccount.getUTXOsByState(
+          UTXOStatus.UNSPENT
+        );
+        const spentAfterWithdraws = utxoAccount.getUTXOsByState(
+          UTXOStatus.SPENT
+        );
         const freeAfterWithdraws = utxoAccount.getUTXOsByState(UTXOStatus.FREE);
-        
-        assertEquals(unspentAfterWithdraws.length, 1, "Should have 1 UNSPENT UTXO after withdraws");
-        assertEquals(spentAfterWithdraws.length, 2, "Should have 2 SPENT UTXOs after withdraws");
-        assertEquals(freeAfterWithdraws.length, 2, "Should have 2 FREE UTXOs after withdraws");
+
+        assertEquals(
+          unspentAfterWithdraws.length,
+          1,
+          "Should have 1 UNSPENT UTXO after withdraws"
+        );
+        assertEquals(
+          spentAfterWithdraws.length,
+          2,
+          "Should have 2 SPENT UTXOs after withdraws"
+        );
+        assertEquals(
+          freeAfterWithdraws.length,
+          2,
+          "Should have 2 FREE UTXOs after withdraws"
+        );
 
         const totalAfterWithdraws = utxoAccount.getTotalBalance();
-        assertEquals(totalAfterWithdraws, 300000n, "Total balance should be 300000 after withdraws (only third UTXO)");
+        assertEquals(
+          totalAfterWithdraws,
+          300000n,
+          "Total balance should be 300000 after withdraws (only third UTXO)"
+        );
 
         // Step 6: Make new deposit to one of the FREE UTXOs
         const freeUtxo = freeAfterWithdraws[0];
@@ -936,7 +985,11 @@ describe(
         const finalSpent = utxoAccount.getUTXOsByState(UTXOStatus.SPENT);
         const finalFree = utxoAccount.getUTXOsByState(UTXOStatus.FREE);
 
-        assertEquals(finalUnspent.length, 2, "Should have 2 UNSPENT UTXOs at end");
+        assertEquals(
+          finalUnspent.length,
+          2,
+          "Should have 2 UNSPENT UTXOs at end"
+        );
         assertEquals(finalSpent.length, 2, "Should have 2 SPENT UTXOs at end");
         assertEquals(finalFree.length, 1, "Should have 1 FREE UTXO at end");
 
@@ -949,8 +1002,16 @@ describe(
         );
 
         // Verify individual balances
-        assertEquals(finalUnspent[0].balance, 300000n, "First UNSPENT should have 300000");
-        assertEquals(finalUnspent[1].balance, 150000n, "Second UNSPENT should have 150000");
+        assertEquals(
+          finalUnspent[0].balance,
+          300000n,
+          "First UNSPENT should have 300000"
+        );
+        assertEquals(
+          finalUnspent[1].balance,
+          150000n,
+          "Second UNSPENT should have 150000"
+        );
       });
     });
   }
