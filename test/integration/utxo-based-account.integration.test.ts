@@ -207,13 +207,13 @@ describe(
         const testRoot = "S-TEST_SECRET_ROOT_2";
 
         // Create a fresh derivator for this test
-        const stelalrDerivator = new StellarDerivator().withNetworkAndContract(
+        const stellarDerivator = new StellarDerivator().withNetworkAndContract(
           StellarNetworkId.Testnet,
           channelId
         );
 
         const utxoAccount = new UtxoBasedStellarAccount({
-          derivator: stelalrDerivator,
+          derivator: stellarDerivator,
           root: testRoot,
           options: {
             batchSize: 10,
