@@ -1,8 +1,14 @@
-// deno-lint-ignore-file require-await
-import { assertEquals, assertNotEquals, assertRejects } from "@std/assert";
+import {
+  assertEquals,
+  assertNotEquals,
+  assertRejects,
+  assertThrows,
+} from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
 import { BaseDerivator } from "../../derivation/base/index.ts";
 import { UTXOKeypair } from "./index.ts";
 import { type BalanceFetcher, UTXOStatus } from "./types.ts";
+import * as DER_ERR from "../../derivation/error.ts";
 
 // Mock key data for testing
 const mockPrivateKey = new Uint8Array([1, 2, 3, 4, 5]);
@@ -54,127 +60,171 @@ class TestDerivator extends BaseDerivator<string, string, string> {
   }
 }
 
-Deno.test("UTXOKeypair", async (t) => {
-  await t.step("constructor should initialize correctly", () => {
-    const utxo = new UTXOKeypair({
-      privateKey: mockPrivateKey,
-      publicKey: mockPublicKey,
-      context: "test-context",
-      index: "0",
-    });
-
-    assertEquals(utxo.privateKey, mockPrivateKey);
-    assertEquals(utxo.publicKey, mockPublicKey);
-    assertEquals(utxo.context, "test-context");
-    assertEquals(utxo.index, "0");
-    assertEquals(utxo.status, UTXOStatus.UNLOADED);
-    assertEquals(utxo.balance, 0n);
-    assertEquals(utxo.decimals, 7); // Default value
-  });
-
-  await t.step("constructor should allow setting custom decimals", () => {
-    const utxo = new UTXOKeypair(
-      {
+describe("UTXOKeypair", () => {
+  describe("constructor", () => {
+    it("initializes with correct default values", () => {
+      const utxo = new UTXOKeypair({
         privateKey: mockPrivateKey,
         publicKey: mockPublicKey,
         context: "test-context",
         index: "0",
-      },
-      { decimals: 18 }
-    );
+      });
 
-    assertEquals(utxo.decimals, 18);
-  });
-
-  await t.step("updateState should update balance and status correctly", () => {
-    const utxo = new UTXOKeypair({
-      privateKey: mockPrivateKey,
-      publicKey: mockPublicKey,
-      context: "test-context",
-      index: "0",
+      assertEquals(utxo.privateKey, mockPrivateKey);
+      assertEquals(utxo.publicKey, mockPublicKey);
+      assertEquals(utxo.context, "test-context");
+      assertEquals(utxo.index, "0");
+      assertEquals(utxo.status, UTXOStatus.UNLOADED);
+      assertEquals(utxo.balance, 0n);
+      assertEquals(utxo.decimals, 7); // Default value
     });
 
-    // Initially unloaded
-    assertEquals(utxo.status, UTXOStatus.UNLOADED);
+    it("allows setting custom decimals", () => {
+      const utxo = new UTXOKeypair(
+        {
+          privateKey: mockPrivateKey,
+          publicKey: mockPublicKey,
+          context: "test-context",
+          index: "0",
+        },
+        { decimals: 18 }
+      );
 
-    // Update to an unspent status with positive balance
-    utxo.updateState(100n);
-    assertEquals(utxo.balance, 100n);
-    assertEquals(utxo.status, UTXOStatus.UNSPENT);
-
-    // Update to a free status with zero balance
-    utxo.updateState(0n);
-    assertEquals(utxo.balance, 0n);
-    assertEquals(utxo.status, UTXOStatus.FREE);
-
-    // Update to a spent status with negative balance
-    utxo.updateState(-1n);
-    assertEquals(utxo.balance, -1n);
-    assertEquals(utxo.status, UTXOStatus.SPENT);
-
-    // lastUpdated should be set
-    assertNotEquals(utxo.lastUpdated, 0);
+      assertEquals(utxo.decimals, 18);
+    });
   });
 
-  await t.step("load should update state using fetcher", async () => {
-    const balanceFetcher = new MockBalanceFetcher();
-    balanceFetcher.setBalance(mockPublicKey, 200n);
+  describe("updateState", () => {
+    it("updates balance and status correctly for positive balance", () => {
+      const utxo = new UTXOKeypair({
+        privateKey: mockPrivateKey,
+        publicKey: mockPublicKey,
+        context: "test-context",
+        index: "0",
+      });
 
-    const utxo = new UTXOKeypair({
-      privateKey: mockPrivateKey,
-      publicKey: mockPublicKey,
-      context: "test-context",
-      index: "0",
+      assertEquals(utxo.status, UTXOStatus.UNLOADED);
+
+      utxo.updateState(100n);
+      assertEquals(utxo.balance, 100n);
+      assertEquals(utxo.status, UTXOStatus.UNSPENT);
+      assertNotEquals(utxo.lastUpdated, 0);
     });
 
-    // Set the balance fetcher first, then load
-    utxo.setBalanceFetcher(balanceFetcher);
-    await utxo.load();
+    it("updates status to FREE when balance is zero", () => {
+      const utxo = new UTXOKeypair({
+        privateKey: mockPrivateKey,
+        publicKey: mockPublicKey,
+        context: "test-context",
+        index: "0",
+      });
 
-    assertEquals(utxo.balance, 200n);
-    assertEquals(utxo.status, UTXOStatus.UNSPENT);
-    assertEquals(balanceFetcher.fetchCount, 1);
-  });
-
-  await t.step("helper methods should correctly identify status", () => {
-    const utxo = new UTXOKeypair({
-      privateKey: mockPrivateKey,
-      publicKey: mockPublicKey,
-      context: "test-context",
-      index: "0",
+      utxo.updateState(0n);
+      assertEquals(utxo.balance, 0n);
+      assertEquals(utxo.status, UTXOStatus.FREE);
     });
 
-    // Initially unloaded
-    assertEquals(utxo.isUnloaded(), true);
-    assertEquals(utxo.isUnspent(), false);
-    assertEquals(utxo.isSpent(), false);
-    assertEquals(utxo.isFree(), false);
+    it("updates status to SPENT when balance is negative", () => {
+      const utxo = new UTXOKeypair({
+        privateKey: mockPrivateKey,
+        publicKey: mockPublicKey,
+        context: "test-context",
+        index: "0",
+      });
 
-    // Update to unspent with positive balance
-    utxo.updateState(100n);
-    assertEquals(utxo.isUnloaded(), false);
-    assertEquals(utxo.isUnspent(), true);
-    assertEquals(utxo.isSpent(), false);
-    assertEquals(utxo.isFree(), false);
-
-    // Update to free with zero balance
-    utxo.updateState(0n);
-    assertEquals(utxo.isUnloaded(), false);
-    assertEquals(utxo.isUnspent(), false);
-    assertEquals(utxo.isSpent(), false);
-    assertEquals(utxo.isFree(), true);
-
-    // Update to spent with negative balance
-    utxo.updateState(-1n);
-    assertEquals(utxo.isUnloaded(), false);
-    assertEquals(utxo.isUnspent(), false);
-    assertEquals(utxo.isSpent(), true);
-    assertEquals(utxo.isFree(), false);
+      utxo.updateState(-1n);
+      assertEquals(utxo.balance, -1n);
+      assertEquals(utxo.status, UTXOStatus.SPENT);
+    });
   });
 
-  await t.step(
-    "fromDerivator should create keypair from derivator",
-    async () => {
+  describe("load", () => {
+    it("updates state using balance fetcher", async () => {
+      const balanceFetcher = new MockBalanceFetcher();
+      balanceFetcher.setBalance(mockPublicKey, 200n);
+
+      const utxo = new UTXOKeypair({
+        privateKey: mockPrivateKey,
+        publicKey: mockPublicKey,
+        context: "test-context",
+        index: "0",
+      });
+
+      utxo.setBalanceFetcher(balanceFetcher);
+      await utxo.load();
+
+      assertEquals(utxo.balance, 200n);
+      assertEquals(utxo.status, UTXOStatus.UNSPENT);
+      assertEquals(balanceFetcher.fetchCount, 1);
+    });
+  });
+
+  describe("status helper methods", () => {
+    it("correctly identifies UNLOADED status", () => {
+      const utxo = new UTXOKeypair({
+        privateKey: mockPrivateKey,
+        publicKey: mockPublicKey,
+        context: "test-context",
+        index: "0",
+      });
+
+      assertEquals(utxo.isUnloaded(), true);
+      assertEquals(utxo.isUnspent(), false);
+      assertEquals(utxo.isSpent(), false);
+      assertEquals(utxo.isFree(), false);
+    });
+
+    it("correctly identifies UNSPENT status", () => {
+      const utxo = new UTXOKeypair({
+        privateKey: mockPrivateKey,
+        publicKey: mockPublicKey,
+        context: "test-context",
+        index: "0",
+      });
+
+      utxo.updateState(100n);
+
+      assertEquals(utxo.isUnloaded(), false);
+      assertEquals(utxo.isUnspent(), true);
+      assertEquals(utxo.isSpent(), false);
+      assertEquals(utxo.isFree(), false);
+    });
+
+    it("correctly identifies FREE status", () => {
+      const utxo = new UTXOKeypair({
+        privateKey: mockPrivateKey,
+        publicKey: mockPublicKey,
+        context: "test-context",
+        index: "0",
+      });
+
+      utxo.updateState(0n);
+
+      assertEquals(utxo.isUnloaded(), false);
+      assertEquals(utxo.isUnspent(), false);
+      assertEquals(utxo.isSpent(), false);
+      assertEquals(utxo.isFree(), true);
+    });
+
+    it("correctly identifies SPENT status", () => {
+      const utxo = new UTXOKeypair({
+        privateKey: mockPrivateKey,
+        publicKey: mockPublicKey,
+        context: "test-context",
+        index: "0",
+      });
+
+      utxo.updateState(-1n);
+
+      assertEquals(utxo.isUnloaded(), false);
+      assertEquals(utxo.isUnspent(), false);
+      assertEquals(utxo.isSpent(), true);
+      assertEquals(utxo.isFree(), false);
+    });
+  });
+
+  describe("fromDerivator", () => {
+    it("creates keypair from configured derivator", async () => {
       const derivator = new TestDerivator("test-context", "secret-root");
 
       const utxo = await UTXOKeypair.fromDerivator(derivator, "0");
@@ -188,25 +238,21 @@ Deno.test("UTXOKeypair", async (t) => {
       // The root should not be stored in the UTXOKeypair
       // deno-lint-ignore no-explicit-any
       assertEquals((utxo as any).root, undefined);
-    }
-  );
+    });
 
-  await t.step(
-    "fromDerivator should throw if derivator not configured",
-    async () => {
+    it("throws PROPERTY_NOT_SET when derivator not configured", async () => {
       const derivator = new BaseDerivator<string, string, string>();
 
       await assertRejects(
-        () => UTXOKeypair.fromDerivator(derivator, "0"),
+        async () => await UTXOKeypair.fromDerivator(derivator, "0"),
         Error,
         "Derivator is not properly configured"
       );
-    }
-  );
+    });
+  });
 
-  await t.step(
-    "deriveSequence should create multiple UTXOKeypairs",
-    async () => {
+  describe("deriveSequence", () => {
+    it("creates multiple UTXOKeypairs with sequential indices", async () => {
       const derivator = new TestDerivator("test-context", "secret-root");
 
       const utxos = await UTXOKeypair.deriveSequence(
@@ -228,6 +274,6 @@ Deno.test("UTXOKeypair", async (t) => {
         // deno-lint-ignore no-explicit-any
         assertEquals((utxo as any).root, undefined);
       }
-    }
-  );
+    });
+  });
 });

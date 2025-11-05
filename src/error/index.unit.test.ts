@@ -41,7 +41,7 @@ Deno.test("MoonlightError", async (t) => {
   await t.step("toJSON should return plain snapshot of all fields", () => {
     const e = new MoonlightError({
       domain: "general",
-      source: "moonlight",
+      source: "@Moonlight",
       code: GeneralErrorCode.UNEXPECTED_ERROR,
       message: "Unexpected error",
       details: "boom",
@@ -57,7 +57,7 @@ Deno.test("MoonlightError", async (t) => {
     assertEquals(j.domain, "general");
     assertEquals(j.code, GeneralErrorCode.UNEXPECTED_ERROR);
     assertEquals(j.message, "Unexpected error");
-    assertEquals(j.source, "moonlight");
+    assertEquals(j.source, "@Moonlight");
     assertEquals(j.details, "boom");
     assertObjectMatch(j.meta!, { data: { x: 1 } });
     assertObjectMatch(j.diagnostic!, {
@@ -109,7 +109,7 @@ Deno.test("MoonlightError", async (t) => {
       const out = MoonlightError.unexpected();
       assert(out instanceof MoonlightError);
       assertEquals(out.domain, "general");
-      assertEquals(out.source, "moonlight");
+      assertEquals(out.source, "@Moonlight");
       assertEquals(out.code, GeneralErrorCode.UNEXPECTED_ERROR);
       assertEquals(out.message, "Unexpected error");
       assertStrictEquals(out.details, "An unexpected error occurred");
@@ -138,7 +138,7 @@ Deno.test("MoonlightError", async (t) => {
       const out = MoonlightError.fromUnknown(error);
       assert(out instanceof MoonlightError);
       assertEquals(out.domain, "general");
-      assertEquals(out.source, "moonlight");
+      assertEquals(out.source, "@Moonlight");
       assertEquals(out.code, GeneralErrorCode.UNKNOWN_ERROR);
       assertEquals(out.message, "mock error");
       assertStrictEquals(out.details, error.stack);
