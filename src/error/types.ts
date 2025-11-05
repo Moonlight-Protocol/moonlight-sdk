@@ -4,7 +4,8 @@ export type ErrorDomain =
   | "utxo-keypair"
   | "operation"
   | "privacy-channel"
-  | "transaction-builder";
+  | "transaction-builder"
+  | "utxo-based-account";
 
 export type BaseMeta = {
   cause?: unknown; // chained errors

@@ -3,7 +3,8 @@ import { UTXOStatus } from "../core/utxo-keypair/types.ts";
 import type { BaseDerivator } from "../derivation/base/index.ts";
 import { UTXOSelectionStrategy } from "./selection-strategy.ts";
 import type { UTXOSelectionResult } from "./types.ts";
-
+import * as E from "./error.ts";
+import { assert } from "../utils/assert/assert.ts";
 /**
  * Manages UTXO-based accounts with advanced features for privacy-focused blockchain operations
  */
@@ -103,13 +104,8 @@ export class UtxoBasedAccount<
     startIndex?: number;
     count?: number;
   }): Promise<number[]> {
-    if (startIndex < 0) {
-      throw new Error("Start index cannot be negative");
-    }
-
-    if (count <= 0) {
-      throw new Error("Number of UTXOs to derive must be positive");
-    }
+    assert(startIndex >= 0, new E.NEGATIVE_INDEX(startIndex));
+    assert(count > 0, new E.UTXO_TO_DERIVE_TOO_LOW(count));
 
     const derivedIndices: number[] = [];
 
@@ -144,9 +140,7 @@ export class UtxoBasedAccount<
    * @param indices Optional array of specific indices to load
    */
   async batchLoad(states?: UTXOStatus[], indices?: number[]): Promise<void> {
-    if (!this.fetchBalances) {
-      throw new Error("Batch fetch function is not provided.");
-    }
+    assert(this.fetchBalances, new E.MISSING_BATCH_FETCH_FN());
 
     // Get all relevant UTXOs
     const utxosToCheck = Array.from(this.utxos.entries()).filter(
@@ -304,9 +298,8 @@ export class UtxoBasedAccount<
    */
   updateUTXOState(index: number, newState: UTXOStatus, balance?: bigint): void {
     const utxo = this.utxos.get(index);
-    if (!utxo) {
-      throw new Error(`UTXO with index ${index} does not exist.`);
-    }
+
+    assert(utxo, new E.MISSING_UTXO_FOR_INDEX(index));
 
     if (balance !== undefined) {
       utxo.balance = balance;
