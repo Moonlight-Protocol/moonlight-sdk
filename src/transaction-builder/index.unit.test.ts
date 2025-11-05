@@ -1,4 +1,9 @@
-import { assertEquals, assertExists, assertThrows } from "@std/assert";
+import {
+  assertEquals,
+  assertExists,
+  assertRejects,
+  assertThrows,
+} from "@std/assert";
 import { beforeAll, describe, it } from "@std/testing/bdd";
 import { LocalSigner } from "@colibri/core";
 import { Asset, Networks } from "@stellar/stellar-sdk";
@@ -12,6 +17,7 @@ import { Buffer } from "buffer";
 import { generateNonce } from "../utils/common/index.ts";
 import { UTXOKeypairBase } from "../core/utxo-keypair-base/index.ts";
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
+import * as OPR_ERR from "../operation/error.ts";
 
 describe("MoonlightTransactionBuilder", () => {
   let validPublicKey: Ed25519PublicKey;
@@ -696,10 +702,9 @@ describe("MoonlightTransactionBuilder", () => {
       it("should throw error for zero amount in CREATE operation", async () => {
         const utxo = (await generateP256KeyPair()).publicKey as UTXOPublicKey;
 
-        assertThrows(
-          () => Operation.create(utxo, 0n),
-          Error,
-          "Amount must be greater than zero"
+        assertRejects(
+          async () => await Operation.create(utxo, 0n),
+          OPR_ERR.AMOUNT_TOO_LOW
         );
       });
 
@@ -709,8 +714,7 @@ describe("MoonlightTransactionBuilder", () => {
 
         assertThrows(
           () => Operation.deposit(pubKey, -100n),
-          Error,
-          "Amount must be greater than zero"
+          OPR_ERR.AMOUNT_TOO_LOW
         );
       });
 
@@ -719,9 +723,8 @@ describe("MoonlightTransactionBuilder", () => {
           LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
 
         assertThrows(
-          () => Operation.withdraw(pubKey, -100n),
-          Error,
-          "Amount must be greater than zero"
+          () => Operation.withdraw(pubKey, -10n),
+          OPR_ERR.AMOUNT_TOO_LOW
         );
       });
     });

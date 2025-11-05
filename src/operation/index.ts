@@ -13,6 +13,8 @@ import { Condition } from "../conditions/index.ts";
 import { nativeToScVal, xdr } from "@stellar/stellar-sdk";
 import { Buffer } from "node:buffer";
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
+import * as E from "./error.ts";
+import { assert } from "../utils/assert/assert.ts";
 
 export class MoonlightOperation implements BaseOperation {
   private _op: UTXOOperationType;
@@ -32,10 +34,6 @@ export class MoonlightOperation implements BaseOperation {
     publicKey?: Ed25519PublicKey;
     utxo?: UTXOPublicKey;
   }) {
-    if (amount !== undefined && amount <= 0n) {
-      throw new Error("Amount must be greater than zero");
-    }
-
     // Business rule: CREATE operations cannot have conditions.
     // This is because conditions are only applicable to DEPOSIT, SPEND, and WITHDRAW operations.
     // Attempting to add conditions to CREATE would violate the intended operation semantics.
@@ -48,6 +46,8 @@ export class MoonlightOperation implements BaseOperation {
   }
 
   static create(utxo: UTXOPublicKey, amount: bigint): CreateOperation {
+    assert(amount > 0n, new E.AMOUNT_TOO_LOW(amount));
+
     return new MoonlightOperation({
       op: UTXOOperationType.CREATE,
       utxo,
@@ -59,9 +59,12 @@ export class MoonlightOperation implements BaseOperation {
     publicKey: Ed25519PublicKey,
     amount: bigint
   ): DepositOperation {
-    if (!StrKey.isValidEd25519PublicKey(publicKey)) {
-      throw new Error("Invalid Ed25519 public key");
-    }
+    assert(amount > 0n, new E.AMOUNT_TOO_LOW(amount));
+
+    assert(
+      StrKey.isValidEd25519PublicKey(publicKey),
+      new E.INVALID_ED25519_PK(publicKey)
+    );
 
     return new MoonlightOperation({
       op: UTXOOperationType.DEPOSIT,
@@ -74,9 +77,13 @@ export class MoonlightOperation implements BaseOperation {
     publicKey: Ed25519PublicKey,
     amount: bigint
   ): WithdrawOperation {
-    if (!StrKey.isValidEd25519PublicKey(publicKey)) {
-      throw new Error("Invalid Ed25519 public key.");
-    }
+    assert(amount > 0n, new E.AMOUNT_TOO_LOW(amount));
+
+    assert(
+      StrKey.isValidEd25519PublicKey(publicKey),
+      new E.INVALID_ED25519_PK(publicKey)
+    );
+
     return new MoonlightOperation({
       op: UTXOOperationType.WITHDRAW,
       publicKey,
@@ -119,7 +126,7 @@ export class MoonlightOperation implements BaseOperation {
     | UTXOPublicKey
     | ConditionType[] {
     if (this[arg] !== undefined) return this[arg];
-    throw new Error(`Property ${arg} is not set in the Operation instance`);
+    throw new E.PROPERTY_NOT_SET(arg);
   }
 
   //==========================================
@@ -346,7 +353,7 @@ export class MoonlightOperation implements BaseOperation {
       return Condition.withdraw(this.getPublicKey(), this.getAmount());
     }
 
-    throw new Error("Cannot convert SPEND operation to Condition");
+    throw new E.CANNOT_CONVERT_SPEND_OP(this.getUtxo());
   }
 
   /**
@@ -384,7 +391,7 @@ export class MoonlightOperation implements BaseOperation {
       return this.spendToScVal();
     }
 
-    throw new Error("Unsupported operation type for ScVal conversion");
+    throw new E.UNSUPPORTED_OP_TYPE_FOR_SCVAL_CONVERSION(this.getOperation());
   }
 
   private conditionsToScVal(): xdr.ScVal {
@@ -394,7 +401,7 @@ export class MoonlightOperation implements BaseOperation {
   }
 
   private createToScVal(): xdr.ScVal {
-    if (!this.isCreate()) throw new Error("Operation is not CREATE");
+    assert(this.isCreate(), new E.OP_IS_NOT_CREATE(this.getOperation()));
 
     return xdr.ScVal.scvVec([
       xdr.ScVal.scvBytes(Buffer.from(this.getUtxo())),
@@ -403,7 +410,7 @@ export class MoonlightOperation implements BaseOperation {
   }
 
   private spendToScVal(): xdr.ScVal {
-    if (!this.isSpend()) throw new Error("Operation is not SPEND");
+    assert(this.isSpend(), new E.OP_IS_NOT_SPEND(this.getOperation()));
     return xdr.ScVal.scvVec([
       xdr.ScVal.scvBytes(Buffer.from(this.getUtxo())),
       this.conditionsToScVal(),
@@ -411,7 +418,7 @@ export class MoonlightOperation implements BaseOperation {
   }
 
   private depositToScVal(): xdr.ScVal {
-    if (!this.isDeposit()) throw new Error("Operation is not DEPOSIT");
+    assert(this.isDeposit(), new E.OP_IS_NOT_DEPOSIT(this.getOperation()));
 
     return xdr.ScVal.scvVec([
       nativeToScVal(this.getPublicKey(), { type: "address" }),
@@ -421,7 +428,7 @@ export class MoonlightOperation implements BaseOperation {
   }
 
   private withdrawToScVal(): xdr.ScVal {
-    if (!this.isWithdraw()) throw new Error("Operation is not WITHDRAW");
+    assert(this.isWithdraw(), new E.OP_IS_NOT_WITHDRAW(this.getOperation()));
 
     return xdr.ScVal.scvVec([
       nativeToScVal(this.getPublicKey(), { type: "address" }),
