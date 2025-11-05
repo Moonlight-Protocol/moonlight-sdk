@@ -18,6 +18,7 @@ import { generateNonce } from "../utils/common/index.ts";
 import { UTXOKeypairBase } from "../core/utxo-keypair-base/index.ts";
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 import * as OPR_ERR from "../operation/error.ts";
+import * as TBU_ERR from "./error.ts";
 
 describe("MoonlightTransactionBuilder", () => {
   let validPublicKey: Ed25519PublicKey;
@@ -640,8 +641,7 @@ describe("MoonlightTransactionBuilder", () => {
 
         assertThrows(
           () => testBuilder.addOperation(operation2),
-          Error,
-          "Create operation for this UTXO already exists"
+          TBU_ERR.DUPLICATE_CREATE_OP
         );
       });
 
@@ -667,8 +667,7 @@ describe("MoonlightTransactionBuilder", () => {
         assertThrows(
           // deno-lint-ignore no-explicit-any
           () => (testBuilder as any).addDeposit(operation2),
-          Error,
-          "Deposit operation for this public key already exists"
+          TBU_ERR.DUPLICATE_DEPOSIT_OP
         );
       });
 
@@ -694,8 +693,7 @@ describe("MoonlightTransactionBuilder", () => {
         assertThrows(
           // deno-lint-ignore no-explicit-any
           () => (testBuilder as any).addWithdraw(operation2),
-          Error,
-          "Withdraw operation for this public key already exists"
+          TBU_ERR.DUPLICATE_WITHDRAW_OP
         );
       });
 
@@ -750,8 +748,7 @@ describe("MoonlightTransactionBuilder", () => {
               signature,
               expirationLedger
             ),
-          Error,
-          "No spend operation for this UTXO"
+          TBU_ERR.NO_SPEND_OPS
         );
       });
 
@@ -770,8 +767,7 @@ describe("MoonlightTransactionBuilder", () => {
 
         assertThrows(
           () => testBuilder.addExtSignedEntry(nonExistentKey, mockAuthEntry),
-          Error,
-          "No deposit or withdraw operation for this public key"
+          TBU_ERR.NO_EXT_OPS
         );
       });
 
@@ -785,8 +781,7 @@ describe("MoonlightTransactionBuilder", () => {
 
         assertThrows(
           () => testBuilder.signaturesXDR(),
-          Error,
-          "No Provider signatures added"
+          TBU_ERR.MISSING_PROVIDER_SIGNATURE
         );
       });
 
@@ -827,8 +822,7 @@ describe("MoonlightTransactionBuilder", () => {
               nonce,
               signatureExpirationLedger
             ),
-          Error,
-          "No deposit operation for this address"
+          TBU_ERR.NO_DEPOSIT_OPS
         );
       });
     });
@@ -842,8 +836,7 @@ describe("MoonlightTransactionBuilder", () => {
         assertThrows(
           // deno-lint-ignore no-explicit-any
           () => (emptyBuilder as any).require("_channelId"),
-          Error,
-          "Property _channelId is not set in the Transaction Builder instance"
+          TBU_ERR.PROPERTY_NOT_SET
         );
       });
     });

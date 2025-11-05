@@ -23,10 +23,10 @@ import {
 } from "./auth/index.ts";
 import { orderSpendByUtxo } from "./utils/index.ts";
 import {
-  assertPositiveAmount,
   assertNoDuplicateCreate,
   assertNoDuplicateSpend,
-  assertNoDuplicatePubKey,
+  assertNoDuplicateDeposit,
+  assertNoDuplicateWithdraw,
   assertSpendExists,
 } from "./validators/index.ts";
 import {
@@ -41,7 +41,11 @@ import type {
   SpendOperation,
   WithdrawOperation,
   MoonlightOperation,
+  BaseOperation,
 } from "../operation/types.ts";
+import * as E from "./error.ts";
+import { assert } from "../utils/assert/assert.ts";
+import { assertExtOpsExist } from "./validators/operations.ts";
 
 export class MoonlightTransactionBuilder {
   private _create: CreateOperation[] = [];
@@ -133,9 +137,7 @@ export class MoonlightTransactionBuilder {
     | Map<Ed25519PublicKey, { sig: Buffer; exp: number; nonce: string }>
     | Map<Ed25519PublicKey, xdr.SorobanAuthorizationEntry> {
     if (this[arg] !== undefined) return this[arg];
-    throw new Error(
-      `Property ${arg} is not set in the Transaction Builder instance`
-    );
+    throw new E.PROPERTY_NOT_SET(arg);
   }
 
   //==========================================
@@ -307,12 +309,13 @@ export class MoonlightTransactionBuilder {
     if (op.isSpend()) return this.addSpend(op);
     if (op.isDeposit()) return this.addDeposit(op);
     if (op.isWithdraw()) return this.addWithdraw(op);
-    throw new Error("Unsupported operation type");
+
+    throw new E.UNSUPPORTED_OP_TYPE((op as BaseOperation).getOperation());
   }
 
   private addCreate(op: CreateOperation): MoonlightTransactionBuilder {
     assertNoDuplicateCreate(this.getCreateOperations(), op);
-    assertPositiveAmount(op.getAmount(), "Create operation");
+    assert(op.getAmount() > 0n, new E.AMOUNT_TOO_LOW(op.getAmount()));
 
     this.setCreateOperations([...this.getCreateOperations(), op]);
     return this;
@@ -326,16 +329,16 @@ export class MoonlightTransactionBuilder {
   }
 
   private addDeposit(op: DepositOperation): MoonlightTransactionBuilder {
-    assertNoDuplicatePubKey(this.getDepositOperations(), op, "Deposit");
-    assertPositiveAmount(op.getAmount(), "Deposit operation");
+    assertNoDuplicateDeposit(this.getDepositOperations(), op);
+    assert(op.getAmount() > 0n, new E.AMOUNT_TOO_LOW(op.getAmount()));
 
     this.setDepositOperations([...this.getDepositOperations(), op]);
     return this;
   }
 
   private addWithdraw(op: WithdrawOperation): MoonlightTransactionBuilder {
-    assertNoDuplicatePubKey(this.getWithdrawOperations(), op, "Withdraw");
-    assertPositiveAmount(op.getAmount(), "Withdraw operation");
+    assertNoDuplicateWithdraw(this.getWithdrawOperations(), op);
+    assert(op.getAmount() > 0n, new E.AMOUNT_TOO_LOW(op.getAmount()));
 
     this.setWithdrawOperations([...this.getWithdrawOperations(), op]);
     return this;
@@ -373,11 +376,11 @@ export class MoonlightTransactionBuilder {
     pubKey: Ed25519PublicKey,
     signedAuthEntry: xdr.SorobanAuthorizationEntry
   ): MoonlightTransactionBuilder {
-    if (
-      !this.getDepositOperations().find((d) => d.getPublicKey() === pubKey) &&
-      !this.getWithdrawOperations().find((d) => d.getPublicKey() === pubKey)
-    )
-      throw new Error("No deposit or withdraw operation for this public key");
+    assertExtOpsExist(
+      this.getDepositOperations(),
+      this.getWithdrawOperations(),
+      pubKey
+    );
 
     this.extSignatures.set(pubKey, signedAuthEntry);
     return this;
@@ -397,7 +400,8 @@ export class MoonlightTransactionBuilder {
     signatureExpirationLedger: number
   ): xdr.SorobanAuthorizationEntry {
     const deposit = this.getDepositOperation(address);
-    if (!deposit) throw new Error("No deposit operation for this address");
+
+    assert(deposit, new E.NO_DEPOSIT_OPS(address));
 
     return buildDepositAuthEntry({
       channelId: this.getChannelId(),
@@ -490,8 +494,8 @@ export class MoonlightTransactionBuilder {
 
   public signaturesXDR(): string {
     const providerSigners = Array.from(this.providerInnerSignatures.keys());
-    if (providerSigners.length === 0)
-      throw new Error("No Provider signatures added");
+
+    assert(providerSigners.length > 0, new E.MISSING_PROVIDER_SIGNATURE());
 
     const spendSigs = Array.from(this.innerSignatures.entries()).map(
       ([utxo, { sig, exp }]) => ({ utxo, sig, exp })
@@ -533,11 +537,13 @@ export class MoonlightTransactionBuilder {
     utxo: IUTXOKeypairBase,
     signatureExpirationLedger: number
   ) {
+    assertSpendExists(this.getSpendOperations(), utxo.publicKey);
+
     const conditions = this.getSpendOperations()
       .find((s) => Buffer.from(s.getUtxo()).equals(Buffer.from(utxo.publicKey)))
       ?.getConditions();
 
-    if (!conditions) throw new Error("No spend operation for this UTXO");
+    assert(conditions, new E.NO_CONDITIONS_FOR_SPEND_OP(utxo.publicKey));
 
     const signedHash = await utxo.signPayload(
       await buildAuthPayloadHash({
