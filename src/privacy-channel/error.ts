@@ -1,4 +1,3 @@
-import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 import { MoonlightError } from "../error/index.ts";
 
 export type Meta = {

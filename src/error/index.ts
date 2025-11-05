@@ -1,4 +1,3 @@
-import { prototype } from "node:events";
 import type {
   BaseMeta,
   MoonlightErrorShape,

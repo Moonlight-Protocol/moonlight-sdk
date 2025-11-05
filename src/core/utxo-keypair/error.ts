@@ -1,4 +1,4 @@
-import { BaseDerivator } from "../../derivation/index.ts";
+import type { BaseDerivator } from "../../derivation/index.ts";
 import { MoonlightError } from "../../error/index.ts";
 
 export type Meta = {

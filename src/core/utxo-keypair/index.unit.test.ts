@@ -1,9 +1,4 @@
-import {
-  assertEquals,
-  assertNotEquals,
-  assertRejects,
-  assertThrows,
-} from "@std/assert";
+import { assertEquals, assertNotEquals, assertRejects } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
 import { BaseDerivator } from "../../derivation/base/index.ts";
 import { UTXOKeypair } from "./index.ts";
@@ -35,7 +30,7 @@ class MockBalanceFetcher implements BalanceFetcher {
     this.fetchCount++;
     const key = Array.from(publicKey).toString();
     if (this.balances.has(key)) {
-      return this.balances.get(key)!;
+      return await this.balances.get(key)!;
     }
     return 0n;
   }
@@ -53,7 +48,7 @@ class TestDerivator extends BaseDerivator<string, string, string> {
   override async deriveKeypair(
     _index: string
   ): Promise<{ publicKey: Uint8Array; privateKey: Uint8Array }> {
-    return {
+    return await {
       publicKey: mockPublicKey,
       privateKey: mockPrivateKey,
     };
