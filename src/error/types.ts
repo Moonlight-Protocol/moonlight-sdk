@@ -2,7 +2,8 @@ export type ErrorDomain =
   | "derivation"
   | "general"
   | "utxo-keypair"
-  | "operation";
+  | "operation"
+  | "privacy-channel";
 
 export type BaseMeta = {
   cause?: unknown; // chained errors
