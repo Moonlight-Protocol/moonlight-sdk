@@ -7,6 +7,8 @@ import {
   type UTXOKeypairOptions,
   UTXOStatus,
 } from "./types.ts";
+import * as E from "./error.ts";
+import { assert } from "../../utils/assert/assert.ts";
 
 /**
  * Enhanced UTXOKeypair with state management capabilities
@@ -50,9 +52,7 @@ export class UTXOKeypair<
     index: DIndex,
     options: UTXOKeypairOptions = {}
   ): Promise<UTXOKeypair<DContext, DIndex>> {
-    if (!derivator.isConfigured()) {
-      throw new Error("Derivator is not properly configured");
-    }
+    assert(derivator.isConfigured(), new E.DERIVATOR_NOT_CONFIGURED(derivator));
 
     const context = derivator.getContext();
     const keypair = await derivator.deriveKeypair(index);
@@ -84,9 +84,7 @@ export class UTXOKeypair<
     count: number,
     options: UTXOKeypairOptions = {}
   ): Promise<UTXOKeypair<DContext, `${number}`>[]> {
-    if (!derivator.isConfigured()) {
-      throw new Error("Derivator is not properly configured");
-    }
+    assert(derivator.isConfigured(), new E.DERIVATOR_NOT_CONFIGURED(derivator));
 
     const utxos: UTXOKeypair<DContext, `${number}`>[] = [];
 

@@ -1,4 +1,4 @@
-export type ErrorDomain = "derivation" | "general";
+export type ErrorDomain = "derivation" | "general" | "utxo-keypair";
 
 export type BaseMeta = {
   cause?: unknown; // chained errors

@@ -50,19 +50,19 @@ export class BaseDerivator<
   // Meta Requirement Methods
   //==========================================
 
-  private requireNo(arg: "_context" | "_root"): void {
+  private requireNo(arg: "context" | "root"): void {
     assert(
-      this[arg] === undefined,
-      new E.PROPERTY_ALREADY_SET(arg.replace("_", ""), this[arg] as string)
+      this[`_${arg}`] === undefined,
+      new E.PROPERTY_ALREADY_SET(arg, this[`_${arg}`] as string)
     );
   }
 
   private requireNoContext(): void {
-    this.requireNo("_context");
+    this.requireNo("context");
   }
 
   private requireNoRoot(): void {
-    this.requireNo("_root");
+    this.requireNo("root");
   }
 
   /**
@@ -74,15 +74,11 @@ export class BaseDerivator<
    * @throws {Error} If the requested property is not set
    * @private
    */
-  private require(arg: "_context"): Context;
-  private require(arg: "_root"): Root;
-  private require(arg: "_context" | "_root"): Context | Root {
-    if (this[arg]) return this[arg];
-    throw new E.PROPERTY_NOT_SET(arg.replace("_", ""));
-  }
-
-  private isSet(arg: "_context" | "_root"): boolean {
-    return this[arg] !== undefined;
+  private require(arg: "context"): Context;
+  private require(arg: "root"): Root;
+  private require(arg: "context" | "root"): Context | Root {
+    if (this[`_${arg}`]) return this[`_${arg}`] as Context | Root;
+    throw new E.PROPERTY_NOT_SET(arg);
   }
 
   //==========================================
@@ -101,11 +97,15 @@ export class BaseDerivator<
    * ```
    */
   public getContext(): Context {
-    return this.require("_context");
+    return this.require("context");
   }
 
   private getRoot(): Root {
-    return this.require("_root");
+    return this.require("root");
+  }
+
+  public isSet(arg: "context" | "root"): boolean {
+    return this[`_${arg}`] !== undefined;
   }
 
   //========
@@ -215,6 +215,6 @@ export class BaseDerivator<
    * ```
    */
   isConfigured(): boolean {
-    return this.isSet("_context") && this.isSet("_root");
+    return this.isSet("context") && this.isSet("root");
   }
 }

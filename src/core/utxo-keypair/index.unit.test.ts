@@ -8,7 +8,7 @@ import { describe, it } from "@std/testing/bdd";
 import { BaseDerivator } from "../../derivation/base/index.ts";
 import { UTXOKeypair } from "./index.ts";
 import { type BalanceFetcher, UTXOStatus } from "./types.ts";
-import * as DER_ERR from "../../derivation/error.ts";
+import * as UKP_ERR from "./error.ts";
 
 // Mock key data for testing
 const mockPrivateKey = new Uint8Array([1, 2, 3, 4, 5]);
@@ -245,8 +245,7 @@ describe("UTXOKeypair", () => {
 
       await assertRejects(
         async () => await UTXOKeypair.fromDerivator(derivator, "0"),
-        Error,
-        "Derivator is not properly configured"
+        UKP_ERR.DERIVATOR_NOT_CONFIGURED
       );
     });
   });
