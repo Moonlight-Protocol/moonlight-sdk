@@ -127,9 +127,7 @@ export class UTXOKeypair<
 
     // Auto-load if requested and balance fetcher is available
     if (options.autoLoad && this.balanceFetcher) {
-      this.load().catch((e) => {
-        console.error("Failed to auto-load UTXO state:", e);
-      });
+      this.load();
     }
   }
 
