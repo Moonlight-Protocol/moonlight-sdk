@@ -1,3 +1,4 @@
+import { prototype } from "node:events";
 import type {
   BaseMeta,
   MoonlightErrorShape,
@@ -95,7 +96,7 @@ export class MoonlightError<
   }): MoonlightError {
     return new MoonlightError({
       domain: args?.domain ?? "general",
-      source: args?.source ?? "moonlight",
+      source: args?.source ?? "@Moonlight",
       code: args?.code ?? GeneralErrorCode.UNEXPECTED_ERROR,
       message: args?.message ?? "Unexpected error",
       details: args?.details ?? "An unexpected error occurred",
@@ -120,7 +121,7 @@ export class MoonlightError<
     if (error instanceof Error) {
       return new MoonlightError({
         domain: ctx?.domain ?? "general",
-        source: ctx?.source ?? "moonlight",
+        source: ctx?.source ?? "@Moonlight",
         code: ctx?.code ?? GeneralErrorCode.UNKNOWN_ERROR,
         message: error.message,
         details: ctx?.details ?? error.stack,
