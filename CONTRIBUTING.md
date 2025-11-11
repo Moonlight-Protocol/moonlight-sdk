@@ -1,10 +1,12 @@
 # Contributing to Moonlight SDK
 
-Thank you for your interest in contributing to the Moonlight SDK! Here's how you can help:
+Thank you for your interest in contributing to the Moonlight SDK! Here's how you
+can help:
 
 ## Reporting Issues
 
-If you encounter a bug or have a feature request, please open an issue on [GitHub](https://github.com/Moonlight-Protocol/moonlight-sdk/issues).
+If you encounter a bug or have a feature request, please open an issue on
+[GitHub](https://github.com/Moonlight-Protocol/moonlight-sdk/issues).
 
 ## Development Setup
 
@@ -35,11 +37,15 @@ If you encounter a bug or have a feature request, please open an issue on [GitHu
 
 ### Unit Tests
 
-Unit tests are used to test individual functions or modules in isolation. They should mock any external dependencies to ensure the tests focus solely on the unit under test. Unit tests are located in the same directory as the features they test.
+Unit tests are used to test individual functions or modules in isolation. They
+should mock any external dependencies to ensure the tests focus solely on the
+unit under test. Unit tests are located in the same directory as the features
+they test.
 
 - Use Deno's `Deno.test()` with nested `t.step()` for organizing test cases.
 - Mock dependencies to isolate the unit under test.
-- Use descriptive test names in the format: `method/feature should behavior when condition`.
+- Use descriptive test names in the format:
+  `method/feature should behavior when condition`.
 
 Example:
 
@@ -54,7 +60,9 @@ Deno.test("FeatureName", async (t) => {
 
 ### Integration Tests
 
-Integration tests verify the interaction between multiple components and ensure they work together as expected. These tests do not use mocks and rely on real components. Integration tests are located in the `test/integration` folder.
+Integration tests verify the interaction between multiple components and ensure
+they work together as expected. These tests do not use mocks and rely on real
+components. Integration tests are located in the `test/integration` folder.
 
 - Test complete workflows or interactions between components.
 - Use real network or blockchain interactions where applicable.
@@ -86,7 +94,8 @@ To run tests, use the appropriate Deno task:
   deno task test:integration
   ```
 
-For debugging or verbose output, modify the task in `deno.json` to include the `--log-level=debug` flag or run the command manually.
+For debugging or verbose output, modify the task in `deno.json` to include the
+`--log-level=debug` flag or run the command manually.
 
 ## Submitting Changes
 

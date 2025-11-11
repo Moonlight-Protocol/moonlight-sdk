@@ -14,7 +14,7 @@ export type BaseMeta = {
 
 export interface MoonlightErrorShape<
   Code extends string,
-  Meta extends BaseMeta
+  Meta extends BaseMeta,
 > {
   domain: ErrorDomain;
   code: Code; // ex: "CC_001"

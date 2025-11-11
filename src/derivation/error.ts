@@ -14,7 +14,7 @@ export type DerivationErrorShape<Code extends string> = {
 };
 
 export abstract class DerivationError<
-  Code extends string
+  Code extends string,
 > extends MoonlightError<Code, Meta> {
   override readonly meta: Meta;
 
@@ -48,7 +48,8 @@ export class PROPERTY_ALREADY_SET extends DerivationError<Code> {
     super({
       code: Code.PROPERTY_ALREADY_SET,
       message: `Property '${property}' is already set as: ${value}`,
-      details: `The property '${property}' has already been set for this derivator. Once set, this property cannot be modified.`,
+      details:
+        `The property '${property}' has already been set for this derivator. Once set, this property cannot be modified.`,
       data: { property, value },
     });
   }
@@ -59,7 +60,8 @@ export class PROPERTY_NOT_SET extends DerivationError<Code> {
     super({
       code: Code.PROPERTY_NOT_SET,
       message: `Property '${property}' is not set`,
-      details: `The property '${property}' must be set before it can be accessed. Please ensure that you have configured this property appropriately before attempting to use it.`,
+      details:
+        `The property '${property}' must be set before it can be accessed. Please ensure that you have configured this property appropriately before attempting to use it.`,
       data: { property },
     });
   }

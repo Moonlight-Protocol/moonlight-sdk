@@ -1,8 +1,8 @@
 import type {
   BaseMeta,
-  MoonlightErrorShape,
   Diagnostic,
   ErrorDomain,
+  MoonlightErrorShape,
 } from "./types.ts";
 
 /**
@@ -11,7 +11,7 @@ import type {
  */
 export class MoonlightError<
   C extends string = string,
-  M extends BaseMeta = BaseMeta
+  M extends BaseMeta = BaseMeta,
 > extends Error {
   readonly domain: ErrorDomain;
   readonly code: C;
@@ -21,7 +21,6 @@ export class MoonlightError<
   readonly meta?: M;
 
   /**
-   *
    * @description Constructs a new MoonlightError instance.
    *
    * @param {MoonlightErrorShape<C, M>} e - The error shape containing all necessary properties.
@@ -38,7 +37,6 @@ export class MoonlightError<
   }
 
   /**
-   *
    * @description Serializes the MoonlightError to a JSON-compatible object.
    *
    * @returns {Record<string, unknown>} A JSON-compatible representation of the error.
@@ -57,7 +55,6 @@ export class MoonlightError<
   }
 
   /**
-   *
    * @description Type guard to check if an unknown value is a MoonlightError.
    *
    * @param {unknown} e - The value to check.
@@ -69,7 +66,6 @@ export class MoonlightError<
   }
 
   /**
-   *
    * @description Creates a generic unexpected error instance.
    *
    * @param {object} args  - Optional parameters to customize the error
@@ -82,7 +78,6 @@ export class MoonlightError<
    * @param {unknown} [cause] - The underlying cause of the error
    *
    * @returns A new instance of MoonlightError
-   *
    */
   static unexpected(args?: {
     domain?: ErrorDomain;
@@ -104,7 +99,6 @@ export class MoonlightError<
   }
 
   /**
-   *
    * @description Creates a MoonlightError from an unknown error.
    *
    * @param {unknown} error - The unknown error to convert
@@ -114,7 +108,7 @@ export class MoonlightError<
    */
   static fromUnknown(
     error: unknown,
-    ctx?: Partial<MoonlightError<string, BaseMeta>>
+    ctx?: Partial<MoonlightError<string, BaseMeta>>,
   ): MoonlightError {
     if (error instanceof MoonlightError) return error;
     if (error instanceof Error) {

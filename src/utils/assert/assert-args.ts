@@ -4,10 +4,11 @@ import type { MoonlightError } from "../../error/index.ts";
 // Throws the provided error if any argument is invalid.
 export function assertRequiredArgs(
   args: Record<string, unknown>,
-  errorFn: (argName: string) => MoonlightError
+  errorFn: (argName: string) => MoonlightError,
 ): asserts args is Record<string, unknown> {
   for (const argName of Object.keys(args)) {
-    if (!(argName in args) || args[argName] === undefined)
+    if (!(argName in args) || args[argName] === undefined) {
       throw errorFn(argName);
+    }
   }
 }

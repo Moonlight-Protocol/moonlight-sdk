@@ -1,12 +1,10 @@
 /**
- *
  * Module for converting conditions to custom Moonlight XDR format.
  *
  * All custom XDR encoded for Moonlight are a BASE64 string prefixed by 'ML' to distinguish them from standard Stellar XDR.
  *
  * The first byte after the prefix indicates the object type:
  *  E.g: Given a Create Condition, the first byte after 'ML' would be 0x01.
- *
  *
  * Example ML XDR encoding for a Spend Operation:
  * - Decoded Bytes:
@@ -68,7 +66,7 @@ const getMLXDRTypePrefix = (data: string): Buffer => {
 
 const appendMLXDRPrefixToRawXDR = (
   data: string,
-  typeByte: MLXDRTypeByte
+  typeByte: MLXDRTypeByte,
 ): string => {
   const rawBuffer = Buffer.from(data, "base64");
 
@@ -161,7 +159,7 @@ const operationSignatureToXDR = (args: {
 };
 
 const operationSignatureFromXDR = (
-  data: string
+  data: string,
 ): xdr.SorobanAuthorizationEntry | OperationSignature | undefined => {
   const scVal = xdr.ScVal.fromXDR(data, "base64");
   if (scVal.switch().name !== xdr.ScValType.scvVec().name) {
@@ -270,42 +268,42 @@ const MLXDRtoOperation = (data: string): MoonlightOperationType => {
   if (type === MLXDRTypeByte.CreateOperation) {
     return MoonlightOperation.fromScVal(
       operationXDRScVal,
-      UTXOOperationType.CREATE
+      UTXOOperationType.CREATE,
     );
   } else if (type === MLXDRTypeByte.DepositOperation) {
     if (signatureXDRScVal !== undefined) {
       return MoonlightOperation.fromScVal(
         operationXDRScVal,
-        UTXOOperationType.DEPOSIT
+        UTXOOperationType.DEPOSIT,
       ).appendEd25519Signature(
         operationSignatureFromXDR(
-          signatureXDRScVal.toXDR("base64")
-        ) as xdr.SorobanAuthorizationEntry
+          signatureXDRScVal.toXDR("base64"),
+        ) as xdr.SorobanAuthorizationEntry,
       );
     }
     return MoonlightOperation.fromScVal(
       operationXDRScVal,
-      UTXOOperationType.DEPOSIT
+      UTXOOperationType.DEPOSIT,
     );
   } else if (type === MLXDRTypeByte.WithdrawOperation) {
     return MoonlightOperation.fromScVal(
       operationXDRScVal,
-      UTXOOperationType.WITHDRAW
+      UTXOOperationType.WITHDRAW,
     );
   } else if (type === MLXDRTypeByte.SpendOperation) {
     if (signatureXDRScVal !== undefined) {
       return MoonlightOperation.fromScVal(
         operationXDRScVal,
-        UTXOOperationType.SPEND
+        UTXOOperationType.SPEND,
       ).appendUTXOSignature(
         operationSignatureFromXDR(
-          signatureXDRScVal.toXDR("base64")
-        ) as OperationSignature
+          signatureXDRScVal.toXDR("base64"),
+        ) as OperationSignature,
       );
     }
     return MoonlightOperation.fromScVal(
       operationXDRScVal,
-      UTXOOperationType.SPEND
+      UTXOOperationType.SPEND,
     );
   } else {
     throw new Error("Unknown MLXDR type for Operation");
@@ -327,7 +325,6 @@ const MLXDRtoOperation = (data: string): MoonlightOperationType => {
  *   - 0x30 0xb0: 'ML' Prefix
  *   - 0x05: Type Byte for Spend Operation
  *   - 0x...: Actual XDR Data
- *
  */
 export const MLXDR = {
   is: isMLXDR,

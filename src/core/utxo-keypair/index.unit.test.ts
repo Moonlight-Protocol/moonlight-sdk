@@ -46,7 +46,7 @@ class TestDerivator extends BaseDerivator<string, string, string> {
 
   // Override deriveKeypair to return predictable values for testing
   override async deriveKeypair(
-    _index: string
+    _index: string,
   ): Promise<{ publicKey: Uint8Array; privateKey: Uint8Array }> {
     return await {
       publicKey: mockPublicKey,
@@ -82,7 +82,7 @@ describe("UTXOKeypair", () => {
           context: "test-context",
           index: "0",
         },
-        { decimals: 18 }
+        { decimals: 18 },
       );
 
       assertEquals(utxo.decimals, 18);
@@ -240,7 +240,7 @@ describe("UTXOKeypair", () => {
 
       await assertRejects(
         async () => await UTXOKeypair.fromDerivator(derivator, "0"),
-        UKP_ERR.DERIVATOR_NOT_CONFIGURED
+        UKP_ERR.DERIVATOR_NOT_CONFIGURED,
       );
     });
   });
@@ -252,7 +252,7 @@ describe("UTXOKeypair", () => {
       const utxos = await UTXOKeypair.deriveSequence(
         derivator as BaseDerivator<string, string, `${number}`>,
         0,
-        3
+        3,
       );
 
       assertEquals(utxos.length, 3);

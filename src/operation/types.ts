@@ -57,7 +57,7 @@ export interface DepositOperation extends BaseOperation {
     channelId: ContractId,
     assetId: ContractId,
     networkPassphrase: string,
-    nonce?: string
+    nonce?: string,
   ): Promise<this>;
   getEd25519Signature(): xdr.SorobanAuthorizationEntry;
   isSignedByEd25519(): boolean;
@@ -78,7 +78,7 @@ export interface SpendOperation extends BaseOperation {
   signWithUTXO(
     utxo: IUTXOKeypairBase,
     channelId: ContractId,
-    signatureExpirationLedger: number
+    signatureExpirationLedger: number,
   ): Promise<this>;
   appendUTXOSignature(signature: OperationSignature): this;
 }

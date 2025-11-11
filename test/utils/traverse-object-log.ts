@@ -2,7 +2,7 @@ export function traverseObjectLog(
   // deno-lint-ignore no-explicit-any
   obj: any,
   options: { maxDepth?: number; nodeThreshold?: number } = {},
-  currentDepth: number = 0
+  currentDepth: number = 0,
 ): void {
   const { maxDepth = Infinity, nodeThreshold = Infinity } = options;
 
@@ -10,7 +10,7 @@ export function traverseObjectLog(
   if (currentDepth === maxDepth) {
     console.log(
       " ".repeat(currentDepth * 2) + `Max depth reached. Value:`,
-      obj
+      obj,
     );
     return;
   }
@@ -27,7 +27,7 @@ export function traverseObjectLog(
   // If the number of keys exceeds the threshold, log the count and return.
   if (keys.length > nodeThreshold) {
     console.log(
-      " ".repeat(currentDepth * 2) + `Branch has ${keys.length} nodes`
+      " ".repeat(currentDepth * 2) + `Branch has ${keys.length} nodes`,
     );
     return;
   }

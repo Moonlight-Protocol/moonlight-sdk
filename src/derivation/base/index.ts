@@ -11,7 +11,7 @@ import * as E from "../error.ts";
 export function generatePlainTextSeed<
   C extends string,
   R extends string,
-  I extends string
+  I extends string,
 >(context: C, root: R, index: I): `${C}${R}${I}` {
   return `${context}${root}${index}`;
 }
@@ -22,7 +22,7 @@ export function generatePlainTextSeed<
  * @returns Hashed seed as Uint8Array
  */
 export async function hashSeed<Seed extends string>(
-  plainTextSeed: Seed
+  plainTextSeed: Seed,
 ): Promise<Uint8Array> {
   const encoder = new TextEncoder();
   const dataUint8 = encoder.encode(plainTextSeed);
@@ -41,7 +41,7 @@ export async function hashSeed<Seed extends string>(
 export class BaseDerivator<
   Context extends string = string,
   Root extends string = string,
-  Index extends string = string
+  Index extends string = string,
 > {
   protected _context?: Context;
   protected _root?: Root;
@@ -53,7 +53,7 @@ export class BaseDerivator<
   private requireNo(arg: "context" | "root"): void {
     assert(
       this[`_${arg}`] === undefined,
-      new E.PROPERTY_ALREADY_SET(arg, this[`_${arg}`] as string)
+      new E.PROPERTY_ALREADY_SET(arg, this[`_${arg}`] as string),
     );
   }
 
@@ -164,7 +164,6 @@ export class BaseDerivator<
   }
 
   /**
-   *
    *  Hashes a plaintext seed using SHA-256
    * @param index - The index to derive at
    * @returns A hashed seed as Uint8Array
@@ -195,7 +194,7 @@ export class BaseDerivator<
    * ```
    */
   async deriveKeypair(
-    index: Index
+    index: Index,
   ): Promise<{ publicKey: Uint8Array; privateKey: Uint8Array }> {
     const seed = this.assembleSeed(index);
     const hashedSeed = await hashSeed(seed);

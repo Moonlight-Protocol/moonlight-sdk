@@ -2,20 +2,20 @@ import { assertEquals, assertExists } from "@std/assert";
 import { beforeAll, describe, it } from "@std/testing/bdd";
 
 import {
+  Contract,
+  initializeWithFriendbot,
   LocalSigner,
   NativeAccount,
-  TestNet,
-  initializeWithFriendbot,
-  Contract,
   P_SimulateTransactionErrors,
+  TestNet,
 } from "@colibri/core";
 
 import type {
-  Ed25519PublicKey,
-  TransactionConfig,
   ContractId,
-  TestNetConfig,
+  Ed25519PublicKey,
   Ed25519SecretKey,
+  TestNetConfig,
+  TransactionConfig,
 } from "@colibri/core";
 import {
   AuthInvokeMethods,
@@ -24,15 +24,15 @@ import {
 import type { Buffer } from "node:buffer";
 import { loadContractWasm } from "../helpers/load-wasm.ts";
 import {
+  ChannelInvokeMethods,
+  ChannelReadMethods,
   ChannelSpec,
   type ChannelTypes,
-  PrivacyChannel,
-  ChannelReadMethods,
-  generateP256KeyPair,
-  MoonlightTransactionBuilder,
-  MoonlightOperation as op,
   generateNonce,
-  ChannelInvokeMethods,
+  generateP256KeyPair,
+  MoonlightOperation as op,
+  MoonlightTransactionBuilder,
+  PrivacyChannel,
 } from "../../mod.ts";
 
 import { Asset, Keypair } from "@stellar/stellar-sdk";
@@ -52,11 +52,11 @@ describe(
     const johnKeys = Keypair.random();
 
     const providerA = NativeAccount.fromMasterSigner(
-      LocalSigner.fromSecret(providerKeys.secret() as Ed25519SecretKey)
+      LocalSigner.fromSecret(providerKeys.secret() as Ed25519SecretKey),
     );
 
     const john = NativeAccount.fromMasterSigner(
-      LocalSigner.fromSecret(johnKeys.secret() as Ed25519SecretKey)
+      LocalSigner.fromSecret(johnKeys.secret() as Ed25519SecretKey),
     );
 
     const txConfig: TransactionConfig = {
@@ -67,7 +67,7 @@ describe(
     };
 
     const assetId = Asset.native().contractId(
-      networkConfig.networkPassphrase
+      networkConfig.networkPassphrase,
     ) as ContractId;
 
     let rpc: Server;
@@ -80,17 +80,17 @@ describe(
     beforeAll(async () => {
       await initializeWithFriendbot(
         networkConfig.friendbotUrl,
-        admin.address() as Ed25519PublicKey
+        admin.address() as Ed25519PublicKey,
       );
 
       await initializeWithFriendbot(
         networkConfig.friendbotUrl,
-        providerA.address() as Ed25519PublicKey
+        providerA.address() as Ed25519PublicKey,
       );
 
       await initializeWithFriendbot(
         networkConfig.friendbotUrl,
-        john.address() as Ed25519PublicKey
+        john.address() as Ed25519PublicKey,
       );
 
       rpc = new Server(networkConfig.rpcUrl as string);
@@ -159,7 +159,7 @@ describe(
           networkConfig,
           channelId,
           authId,
-          assetId
+          assetId,
         );
 
         assertExists(channelClient);
@@ -179,7 +179,7 @@ describe(
           networkConfig,
           channelId,
           authId,
-          assetId
+          assetId,
         );
 
         const utxoKeypair = generateP256KeyPair();
@@ -226,7 +226,7 @@ describe(
           networkConfig,
           channelId,
           authId,
-          assetId
+          assetId,
         );
 
         const utxoAKeypair = await generateP256KeyPair();
@@ -237,7 +237,7 @@ describe(
           channelId: channelId,
           authId: authId,
           assetId: Asset.native().contractId(
-            networkConfig.networkPassphrase
+            networkConfig.networkPassphrase,
           ) as ContractId,
         });
 
@@ -249,7 +249,7 @@ describe(
         depositTx.addOperation(
           op
             .deposit(john.address() as Ed25519PublicKey, 500n)
-            .addConditions([createOpA.toCondition(), createOpB.toCondition()])
+            .addConditions([createOpA.toCondition(), createOpB.toCondition()]),
         );
 
         const latestLedger = await rpc.getLatestLedger();
@@ -261,13 +261,13 @@ describe(
         await depositTx.signExtWithEd25519(
           johnKeys,
           signatureExpirationLedger,
-          nonce
+          nonce,
         );
 
         await depositTx.signWithProvider(
           providerKeys,
           signatureExpirationLedger,
-          nonce
+          nonce,
         );
 
         await channelClient
@@ -284,7 +284,7 @@ describe(
               console.error("Error invoking contract:", e);
               console.error(
                 "Transaction XDR:",
-                e.meta.data.input.transaction.toXDR()
+                e.meta.data.input.transaction.toXDR(),
               );
             }
             throw e;
@@ -306,5 +306,5 @@ describe(
         assertEquals(utxoBBal, 250n);
       });
     });
-  }
+  },
 );

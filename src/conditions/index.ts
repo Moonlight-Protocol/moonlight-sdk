@@ -1,4 +1,4 @@
-import { StrKey, type Ed25519PublicKey } from "@colibri/core";
+import { type Ed25519PublicKey, StrKey } from "@colibri/core";
 import {
   nativeToScVal,
   scValToBigInt,
@@ -120,7 +120,7 @@ export class Condition implements BaseCondition {
    */
   static deposit(
     publicKey: Ed25519PublicKey,
-    amount: bigint
+    amount: bigint,
   ): DepositCondition {
     if (!StrKey.isValidEd25519PublicKey(publicKey)) {
       throw new Error("Invalid Ed25519 public key");
@@ -154,7 +154,7 @@ export class Condition implements BaseCondition {
    */
   static withdraw(
     publicKey: Ed25519PublicKey,
-    amount: bigint
+    amount: bigint,
   ): WithdrawCondition {
     if (!StrKey.isValidEd25519PublicKey(publicKey)) {
       throw new Error("Invalid Ed25519 public key.");
@@ -173,7 +173,7 @@ export class Condition implements BaseCondition {
    * @returns A Condition instance (CreateCondition, DepositCondition, or WithdrawCondition)
    */
   public static fromXDR(
-    xdrString: string
+    xdrString: string,
   ): CreateCondition | DepositCondition | WithdrawCondition {
     const scVal = xdr.ScVal.fromXDR(xdrString, "base64");
     return Condition.fromScVal(scVal);
@@ -186,19 +186,18 @@ export class Condition implements BaseCondition {
    * @returns A Condition instance (CreateCondition, DepositCondition, or WithdrawCondition)
    */
   public static fromMLXDR(
-    mlxdrString: string
+    mlxdrString: string,
   ): CreateCondition | DepositCondition | WithdrawCondition {
     return MLXDR.toCondition(mlxdrString);
   }
 
   /**
-   *
    * Creates a Condition instance from a Stellar ScVal representation.
    * @param scVal - The Stellar ScVal representation of the condition.
    * @returns A Condition instance (CreateCondition, DepositCondition, or WithdrawCondition)
    */
   public static fromScVal(
-    scVal: xdr.ScVal
+    scVal: xdr.ScVal,
   ): CreateCondition | DepositCondition | WithdrawCondition {
     if (scVal.switch().name !== xdr.ScValType.scvVec().name) {
       throw new Error("Invalid ScVal type for Condition");
@@ -234,7 +233,7 @@ export class Condition implements BaseCondition {
     }
 
     throw new Error(
-      `Unsupported operation type for Condition.fromScVal: ${opType}`
+      `Unsupported operation type for Condition.fromScVal: ${opType}`,
     );
   }
 
@@ -256,7 +255,7 @@ export class Condition implements BaseCondition {
   private require(arg: "_publicKey"): Ed25519PublicKey;
   private require(arg: "_utxo"): UTXOPublicKey;
   private require(
-    arg: "_op" | "_amount" | "_publicKey" | "_utxo"
+    arg: "_op" | "_amount" | "_publicKey" | "_utxo",
   ): UTXOOperationType | bigint | Ed25519PublicKey | UTXOPublicKey {
     if (this[arg]) return this[arg];
     throw new Error(`Property ${arg} is not set in the Condition instance`);
@@ -356,10 +355,9 @@ export class Condition implements BaseCondition {
    */
   public toScVal(): xdr.ScVal {
     const actionScVal = xdr.ScVal.scvSymbol(this.getOperation());
-    const addressScVal =
-      this.getOperation() === UTXOOperationType.CREATE
-        ? xdr.ScVal.scvBytes(Buffer.from(this.getUtxo()))
-        : nativeToScVal(this.getPublicKey(), { type: "address" });
+    const addressScVal = this.getOperation() === UTXOOperationType.CREATE
+      ? xdr.ScVal.scvBytes(Buffer.from(this.getUtxo()))
+      : nativeToScVal(this.getPublicKey(), { type: "address" });
     const amountScVal = nativeToScVal(this.getAmount(), { type: "i128" });
 
     const conditionScVal = xdr.ScVal.scvVec([
@@ -390,13 +388,12 @@ export class Condition implements BaseCondition {
   }
 
   /**
-   *
    * Converts this condition to Moonlight's custom MLXDR format.
    * @returns The condition as a Moonlight XDR string
    */
   public toMLXDR(): string {
     return MLXDR.fromCondition(
-      this as CreateCondition | DepositCondition | WithdrawCondition
+      this as CreateCondition | DepositCondition | WithdrawCondition,
     );
   }
 

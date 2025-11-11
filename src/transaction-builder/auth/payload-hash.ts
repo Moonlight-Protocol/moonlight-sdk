@@ -1,4 +1,4 @@
-import { xdr, hash } from "@stellar/stellar-sdk";
+import { hash, xdr } from "@stellar/stellar-sdk";
 import { Buffer } from "buffer";
 import { sha256Buffer } from "../../utils/hash/sha256Buffer.ts";
 
@@ -24,5 +24,3 @@ export const buildOperationAuthEntryHash = async (params: {
   const payload = preImage.toXDR();
   return Buffer.from(await sha256Buffer(payload));
 };
-
-

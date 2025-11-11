@@ -3,7 +3,7 @@ import { encodeECPrivateKey } from "./encodeECPrivateKey.ts";
 
 export function encodePKCS8(
   privateKey: Uint8Array,
-  publicKey: Uint8Array
+  publicKey: Uint8Array,
 ): Uint8Array {
   // First, encode the inner ECPrivateKey structure.
   const ecPrivateKeyDer = encodeECPrivateKey(privateKey, publicKey);

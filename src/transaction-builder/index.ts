@@ -16,25 +16,25 @@ import {
 import { orderSpendByUtxo } from "./utils/index.ts";
 import {
   assertNoDuplicateCreate,
-  assertNoDuplicateSpend,
   assertNoDuplicateDeposit,
+  assertNoDuplicateSpend,
   assertNoDuplicateWithdraw,
   assertSpendExists,
 } from "./validators/index.ts";
 import {
   type ContractId,
   type Ed25519PublicKey,
-  type TransactionSigner,
   isTransactionSigner,
+  type TransactionSigner,
 } from "@colibri/core";
 import type {
+  BaseOperation,
   CreateOperation,
   DepositOperation,
+  MoonlightOperation,
+  OperationSignature,
   SpendOperation,
   WithdrawOperation,
-  MoonlightOperation,
-  BaseOperation,
-  OperationSignature,
 } from "../operation/types.ts";
 import * as E from "./error.ts";
 import { assert } from "../utils/assert/assert.ts";
@@ -97,13 +97,13 @@ export class MoonlightTransactionBuilder {
   private require(arg: "_assetId"): ContractId;
   private require(arg: "_network"): string;
   private require(
-    arg: "_innerSignatures"
+    arg: "_innerSignatures",
   ): Map<Uint8Array, { sig: Buffer; exp: number }>;
   private require(
-    arg: "_providerInnerSignatures"
+    arg: "_providerInnerSignatures",
   ): Map<Ed25519PublicKey, { sig: Buffer; exp: number; nonce: string }>;
   private require(
-    arg: "_extSignatures"
+    arg: "_extSignatures",
   ): Map<Ed25519PublicKey, xdr.SorobanAuthorizationEntry>;
   private require(
     arg:
@@ -117,7 +117,7 @@ export class MoonlightTransactionBuilder {
       | "_network"
       | "_innerSignatures"
       | "_providerInnerSignatures"
-      | "_extSignatures"
+      | "_extSignatures",
   ):
     | CreateOperation[]
     | SpendOperation[]
@@ -347,7 +347,7 @@ export class MoonlightTransactionBuilder {
 
   private addInnerSignature(
     utxo: UTXOPublicKey,
-    signature: OperationSignature
+    signature: OperationSignature,
   ): MoonlightTransactionBuilder {
     assertSpendExists(this.getSpendOperations(), utxo);
 
@@ -359,7 +359,7 @@ export class MoonlightTransactionBuilder {
     pubKey: Ed25519PublicKey,
     signature: Buffer,
     expirationLedger: number,
-    nonce: string
+    nonce: string,
   ): MoonlightTransactionBuilder {
     this.providerInnerSignatures.set(pubKey, {
       sig: signature,
@@ -371,12 +371,12 @@ export class MoonlightTransactionBuilder {
 
   public addExtSignedEntry(
     pubKey: Ed25519PublicKey,
-    signedAuthEntry: xdr.SorobanAuthorizationEntry
+    signedAuthEntry: xdr.SorobanAuthorizationEntry,
   ): MoonlightTransactionBuilder {
     assertExtOpsExist(
       this.getDepositOperations(),
       this.getWithdrawOperations(),
-      pubKey
+      pubKey,
     );
 
     this.extSignatures.set(pubKey, signedAuthEntry);
@@ -384,10 +384,10 @@ export class MoonlightTransactionBuilder {
   }
 
   public getDepositOperation(
-    depositor: Ed25519PublicKey
+    depositor: Ed25519PublicKey,
   ): DepositOperation | undefined {
     return this.getDepositOperations().find(
-      (d) => d.getPublicKey() === depositor
+      (d) => d.getPublicKey() === depositor,
     );
   }
 
@@ -412,7 +412,7 @@ export class MoonlightTransactionBuilder {
             xdr.ScVal.scvBytes(Buffer.from(spend.getUtxo() as Uint8Array)),
           ]),
           val: xdr.ScVal.scvVec(spend.getConditions().map((c) => c.toScVal())),
-        })
+        }),
       );
     }
 
@@ -422,7 +422,7 @@ export class MoonlightTransactionBuilder {
   public getOperationAuthEntry(
     nonce: string,
     signatureExpirationLedger: number,
-    signed: boolean = false
+    signed: boolean = false,
   ): xdr.SorobanAuthorizationEntry {
     const reqArgs: xdr.ScVal[] = this.getAuthRequirementArgs();
 
@@ -439,11 +439,12 @@ export class MoonlightTransactionBuilder {
   public getSignedOperationAuthEntry(): xdr.SorobanAuthorizationEntry {
     const providerSigners = Array.from(this.providerInnerSignatures.keys());
 
-    if (providerSigners.length === 0)
+    if (providerSigners.length === 0) {
       throw new Error("No Provider signatures added");
+    }
 
-    const { nonce, exp: signatureExpirationLedger } =
-      this.providerInnerSignatures.get(providerSigners[0])!;
+    const { nonce, exp: signatureExpirationLedger } = this
+      .providerInnerSignatures.get(providerSigners[0])!;
 
     const reqArgs: xdr.ScVal[] = this.getAuthRequirementArgs();
 
@@ -459,11 +460,11 @@ export class MoonlightTransactionBuilder {
 
   public async getOperationAuthEntryHash(
     nonce: string,
-    signatureExpirationLedger: number
+    signatureExpirationLedger: number,
   ): Promise<Buffer> {
     const rootInvocation = this.getOperationAuthEntry(
       nonce,
-      signatureExpirationLedger
+      signatureExpirationLedger,
     ).rootInvocation();
     return await buildOperationAuthEntryHash({
       network: this.network,
@@ -479,7 +480,7 @@ export class MoonlightTransactionBuilder {
     assert(providerSigners.length > 0, new E.MISSING_PROVIDER_SIGNATURE());
 
     const spendSigs = Array.from(this.innerSignatures.entries()).map(
-      ([utxo, { sig, exp }]) => ({ utxo, sig, exp })
+      ([utxo, { sig, exp }]) => ({ utxo, sig, exp }),
     );
     const providerSigs = providerSigners.map((pk) => {
       const { sig, exp } = this.providerInnerSignatures.get(pk)!;
@@ -492,31 +493,31 @@ export class MoonlightTransactionBuilder {
   public async signWithProvider(
     providerKeys: TransactionSigner | Keypair,
     signatureExpirationLedger: number,
-    nonce?: string
+    nonce?: string,
   ) {
     if (!nonce) nonce = generateNonce();
 
     const authHash = await this.getOperationAuthEntryHash(
       nonce,
-      signatureExpirationLedger
+      signatureExpirationLedger,
     );
 
     const signedHash = isTransactionSigner(providerKeys)
-      ? // deno-lint-ignore no-explicit-any
-        providerKeys.sign(authHash as any)
+      // deno-lint-ignore no-explicit-any
+      ? providerKeys.sign(authHash as any)
       : providerKeys.sign(authHash);
 
     this.addProviderInnerSignature(
       providerKeys.publicKey() as Ed25519PublicKey,
       signedHash as Buffer,
       signatureExpirationLedger,
-      nonce
+      nonce,
     );
   }
 
   public async signWithSpendUtxo(
     utxoKp: IUTXOKeypairBase,
-    signatureExpirationLedger: number
+    signatureExpirationLedger: number,
   ) {
     const spendOp = this.getSpendOperation(utxoKp.publicKey);
 
@@ -525,7 +526,7 @@ export class MoonlightTransactionBuilder {
     await spendOp.signWithUTXO(
       utxoKp,
       this.getChannelId(),
-      signatureExpirationLedger
+      signatureExpirationLedger,
     );
 
     this.addInnerSignature(utxoKp.publicKey, spendOp.getUTXOSignature());
@@ -534,15 +535,15 @@ export class MoonlightTransactionBuilder {
   public async signExtWithEd25519(
     keys: TransactionSigner | Keypair,
     signatureExpirationLedger: number,
-    nonce?: string
+    nonce?: string,
   ) {
     const depositOp = this.getDepositOperation(
-      keys.publicKey() as Ed25519PublicKey
+      keys.publicKey() as Ed25519PublicKey,
     );
 
     assert(
       depositOp,
-      new E.NO_DEPOSIT_OPS(keys.publicKey() as Ed25519PublicKey)
+      new E.NO_DEPOSIT_OPS(keys.publicKey() as Ed25519PublicKey),
     );
 
     await depositOp.signWithEd25519(
@@ -551,12 +552,12 @@ export class MoonlightTransactionBuilder {
       this.getChannelId(),
       this.getAssetId(),
       this.network,
-      nonce
+      nonce,
     );
 
     this.addExtSignedEntry(
       keys.publicKey() as Ed25519PublicKey,
-      depositOp.getEd25519Signature()
+      depositOp.getEd25519Signature(),
     );
   }
 
@@ -584,25 +585,25 @@ export class MoonlightTransactionBuilder {
       new xdr.ScMapEntry({
         key: xdr.ScVal.scvSymbol("create"),
         val: xdr.ScVal.scvVec(
-          this.getCreateOperations().map((op) => op.toScVal())
+          this.getCreateOperations().map((op) => op.toScVal()),
         ),
       }),
       new xdr.ScMapEntry({
         key: xdr.ScVal.scvSymbol("deposit"),
         val: xdr.ScVal.scvVec(
-          this.getDepositOperations().map((op) => op.toScVal())
+          this.getDepositOperations().map((op) => op.toScVal()),
         ),
       }),
       new xdr.ScMapEntry({
         key: xdr.ScVal.scvSymbol("spend"),
         val: xdr.ScVal.scvVec(
-          this.getSpendOperations().map((op) => op.toScVal())
+          this.getSpendOperations().map((op) => op.toScVal()),
         ),
       }),
       new xdr.ScMapEntry({
         key: xdr.ScVal.scvSymbol("withdraw"),
         val: xdr.ScVal.scvVec(
-          this.getWithdrawOperations().map((op) => op.toScVal())
+          this.getWithdrawOperations().map((op) => op.toScVal()),
         ),
       }),
     ]);

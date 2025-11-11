@@ -15,7 +15,7 @@ export type UTXOKeypairErrorShape<Code extends string> = {
 };
 
 export abstract class UTXOKeypairError<
-  Code extends string
+  Code extends string,
 > extends MoonlightError<Code, Meta> {
   override readonly meta: Meta;
 
@@ -48,7 +48,8 @@ export class DERIVATOR_NOT_CONFIGURED extends UTXOKeypairError<Code> {
     super({
       code: Code.DERIVATOR_NOT_CONFIGURED,
       message: `Derivator is not configured!`,
-      details: `The derivator provided to the UTXOKeypair is not properly configured. Check the derivator's context and root settings.`,
+      details:
+        `The derivator provided to the UTXOKeypair is not properly configured. Check the derivator's context and root settings.`,
       data: {
         derivator: {
           isRootSet: derivator.isSet("root"),

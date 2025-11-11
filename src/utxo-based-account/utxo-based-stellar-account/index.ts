@@ -1,8 +1,8 @@
 import { UtxoBasedAccount } from "../index.ts";
 import type {
   StellarDerivationContext,
-  StellarDerivationRoot,
   StellarDerivationIndex,
+  StellarDerivationRoot,
 } from "../../derivation/stellar/types.ts";
 
 export class UtxoBasedStellarAccount extends UtxoBasedAccount<

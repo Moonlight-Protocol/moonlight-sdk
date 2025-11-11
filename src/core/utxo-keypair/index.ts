@@ -15,12 +15,9 @@ import { assert } from "../../utils/assert/assert.ts";
  * Represents a keypair that can be used for UTXOs in privacy-preserving protocols
  */
 export class UTXOKeypair<
-    Context extends string = string,
-    Index extends string = string
-  >
-  extends UTXOKeypairBase
-  implements IUTXOKeypair<Context, Index>
-{
+  Context extends string = string,
+  Index extends string = string,
+> extends UTXOKeypairBase implements IUTXOKeypair<Context, Index> {
   // Derivation information - immutable after creation
   readonly context: Context;
   readonly index: Index;
@@ -46,11 +43,11 @@ export class UTXOKeypair<
   static async fromDerivator<
     DContext extends string = string,
     DRoot extends string = string,
-    DIndex extends string = string
+    DIndex extends string = string,
   >(
     derivator: BaseDerivator<DContext, DRoot, DIndex>,
     index: DIndex,
-    options: UTXOKeypairOptions = {}
+    options: UTXOKeypairOptions = {},
   ): Promise<UTXOKeypair<DContext, DIndex>> {
     assert(derivator.isConfigured(), new E.DERIVATOR_NOT_CONFIGURED(derivator));
 
@@ -64,7 +61,7 @@ export class UTXOKeypair<
         privateKey: keypair.privateKey,
         publicKey: keypair.publicKey,
       },
-      options
+      options,
     );
   }
 
@@ -82,7 +79,7 @@ export class UTXOKeypair<
     derivator: BaseDerivator<DContext, string, `${number}`>,
     startIdx: number,
     count: number,
-    options: UTXOKeypairOptions = {}
+    options: UTXOKeypairOptions = {},
   ): Promise<UTXOKeypair<DContext, `${number}`>[]> {
     assert(derivator.isConfigured(), new E.DERIVATOR_NOT_CONFIGURED(derivator));
 
@@ -110,7 +107,7 @@ export class UTXOKeypair<
       privateKey: Uint8Array;
       publicKey: Uint8Array;
     },
-    options: UTXOKeypairOptions = {}
+    options: UTXOKeypairOptions = {},
   ) {
     super({ privateKey: args.privateKey, publicKey: args.publicKey });
 
@@ -186,7 +183,7 @@ export class UTXOKeypair<
   async load(): Promise<void> {
     if (!this.balanceFetcher) {
       throw new Error(
-        "Cannot load UTXO state: No balance fetcher set. Use setBalanceFetcher() first."
+        "Cannot load UTXO state: No balance fetcher set. Use setBalanceFetcher() first.",
       );
     }
 

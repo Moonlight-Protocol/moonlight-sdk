@@ -4,7 +4,7 @@ import {
   assertObjectMatch,
   assertStrictEquals,
 } from "@std/assert";
-import { MoonlightError, GeneralErrorCode } from "./index.ts";
+import { GeneralErrorCode, MoonlightError } from "./index.ts";
 import type { BaseMeta, Diagnostic, MoonlightErrorShape } from "./types.ts";
 
 Deno.test("MoonlightError", async (t) => {
@@ -100,7 +100,7 @@ Deno.test("MoonlightError", async (t) => {
       assertEquals(e.details, "ctx");
       assertStrictEquals(e.meta?.cause, cause);
       assertObjectMatch(e.meta!.data as Record<string, unknown>, { id: 7 });
-    }
+    },
   );
 
   await t.step(
@@ -113,7 +113,7 @@ Deno.test("MoonlightError", async (t) => {
       assertEquals(out.code, GeneralErrorCode.UNEXPECTED_ERROR);
       assertEquals(out.message, "Unexpected error");
       assertStrictEquals(out.details, "An unexpected error occurred");
-    }
+    },
   );
 
   await t.step(
@@ -127,7 +127,7 @@ Deno.test("MoonlightError", async (t) => {
       });
       const out = MoonlightError.fromUnknown(original);
       assertStrictEquals(out, original);
-    }
+    },
   );
 
   await t.step(
@@ -144,7 +144,7 @@ Deno.test("MoonlightError", async (t) => {
       assertStrictEquals(out.details, error.stack);
       assert(typeof out.details === "string");
       assertStrictEquals(out.meta?.cause, error);
-    }
+    },
   );
 
   await t.step(
@@ -164,7 +164,7 @@ Deno.test("MoonlightError", async (t) => {
       assertEquals(wrapped.message, "boom");
       assert(typeof wrapped.details === "string");
       assertStrictEquals(wrapped.meta?.cause, native);
-    }
+    },
   );
 
   await t.step("fromUnknown should use unexpected for non-error values", () => {

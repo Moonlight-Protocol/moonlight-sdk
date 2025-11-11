@@ -11,7 +11,7 @@ import { assert } from "../utils/assert/assert.ts";
 export class UtxoBasedAccount<
   Context extends string,
   Root extends string,
-  Index extends `${number}`
+  Index extends `${number}`,
 > {
   private derivator: BaseDerivator<Context, Root, Index>;
   private readonly root: Root;
@@ -24,7 +24,7 @@ export class UtxoBasedAccount<
 
   // Derived index: status -> Set of indices
   private statusIndex: Map<UTXOStatus, Set<number>> = new Map(
-    Object.values(UTXOStatus).map((status) => [status, new Set()])
+    Object.values(UTXOStatus).map((status) => [status, new Set()]),
   );
 
   // Track reserved UTXOs with timestamps (index -> timestamp)
@@ -66,13 +66,13 @@ export class UtxoBasedAccount<
   }
 
   private createProxy(
-    utxo: UTXOKeypair<Context, Index>
+    utxo: UTXOKeypair<Context, Index>,
   ): UTXOKeypair<Context, Index> {
     return new Proxy(utxo, {
       set: (
         target: UTXOKeypair<Context, Index>,
         prop: keyof UTXOKeypair<Context, Index>,
-        value: unknown
+        value: unknown,
       ) => {
         const oldStatus = prop === "status" ? target[prop] : null;
         // @ts-ignore - we know the type is compatible
@@ -113,7 +113,7 @@ export class UtxoBasedAccount<
       const utxoIndex = startIndex + i;
       const keypair = await UTXOKeypair.fromDerivator(
         this.derivator,
-        `${utxoIndex}` as Index
+        `${utxoIndex}` as Index,
       );
 
       // Create proxied UTXO that automatically updates status index
@@ -146,7 +146,7 @@ export class UtxoBasedAccount<
     const utxosToCheck = Array.from(this.utxos.entries()).filter(
       ([index, utxo]) =>
         (!states || states.includes(utxo.status)) &&
-        (!indices || indices.includes(index))
+        (!indices || indices.includes(index)),
     );
 
     // Process UTXOs in batches
@@ -212,7 +212,7 @@ export class UtxoBasedAccount<
    */
   private getFreeUTXOs(): UTXOKeypair<Context, Index>[] {
     return this.getUTXOsByState(UTXOStatus.FREE).filter(
-      (utxo) => !this.isReserved(Number(utxo.index))
+      (utxo) => !this.isReserved(Number(utxo.index)),
     );
   }
 
@@ -239,7 +239,7 @@ export class UtxoBasedAccount<
    */
   selectUTXOsForTransfer(
     amount: bigint,
-    strategy: UTXOSelectionStrategy = UTXOSelectionStrategy.SEQUENTIAL
+    strategy: UTXOSelectionStrategy = UTXOSelectionStrategy.SEQUENTIAL,
   ): UTXOSelectionResult<Context> | null {
     const unspentUtxos = this.getUTXOsByState(UTXOStatus.UNSPENT);
 
@@ -342,7 +342,7 @@ export class UtxoBasedAccount<
     return Array.from(this.reservations.keys())
       .map((index) => this.getUTXO(index))
       .filter(
-        (utxo): utxo is UTXOKeypair<Context, Index> => utxo !== undefined
+        (utxo): utxo is UTXOKeypair<Context, Index> => utxo !== undefined,
       );
   }
 
@@ -362,7 +362,7 @@ export class UtxoBasedAccount<
    * @returns Number of reservations released
    */
   releaseStaleReservations(
-    maxAgeMs: number = this.maxReservationAgeMs
+    maxAgeMs: number = this.maxReservationAgeMs,
   ): number {
     const now = Date.now();
     let released = 0;

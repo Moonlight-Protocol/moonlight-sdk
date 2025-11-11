@@ -18,7 +18,7 @@ export interface BalanceFetcher {
 
 export interface IUTXOKeypair<
   Context extends string = string,
-  Index extends string = string
+  Index extends string = string,
 > extends IUTXOKeypairBase {
   readonly context: Context;
   readonly index: Index;

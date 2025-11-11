@@ -49,7 +49,8 @@ export class NEGATIVE_INDEX extends UTXOBasedAccountError {
     super({
       code: Code.NEGATIVE_INDEX,
       message: `Negative index provided: ${index}`,
-      details: `The provided index ${index} is negative. Indices must be sequential non-negative integers.`,
+      details:
+        `The provided index ${index} is negative. Indices must be sequential non-negative integers.`,
       data: { index },
     });
   }
@@ -60,7 +61,8 @@ export class UTXO_TO_DERIVE_TOO_LOW extends UTXOBasedAccountError {
     super({
       code: Code.UTXO_TO_DERIVE_TOO_LOW,
       message: `UTXOs to derive too low: ${utxosToDerive}`,
-      details: `The number of UTXOs to derive must be at least 1. Provided value: ${utxosToDerive}.`,
+      details:
+        `The number of UTXOs to derive must be at least 1. Provided value: ${utxosToDerive}.`,
       data: { utxosToDerive },
     });
   }
@@ -71,7 +73,8 @@ export class MISSING_BATCH_FETCH_FN extends UTXOBasedAccountError {
     super({
       code: Code.MISSING_BATCH_FETCH_FN,
       message: `Missing batch fetch function`,
-      details: `A batch fetch function must be provided to retrieve UTXO public keys in batches.`,
+      details:
+        `A batch fetch function must be provided to retrieve UTXO public keys in batches.`,
       data: {},
     });
   }
@@ -82,7 +85,8 @@ export class MISSING_UTXO_FOR_INDEX extends UTXOBasedAccountError {
     super({
       code: Code.MISSING_UTXO_FOR_INDEX,
       message: `Missing UTXO for index: ${index}`,
-      details: `No UTXO public key found for the provided index ${index}. Ensure the index is valid and UTXOs have been derived up to this index.`,
+      details:
+        `No UTXO public key found for the provided index ${index}. Ensure the index is valid and UTXOs have been derived up to this index.`,
       data: { index },
     });
   }

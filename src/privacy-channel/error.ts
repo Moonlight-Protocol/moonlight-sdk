@@ -45,7 +45,8 @@ export class PROPERTY_NOT_SET extends PrivacyChannelError {
     super({
       code: Code.PROPERTY_NOT_SET,
       message: `Property not set: ${property}`,
-      details: `The required property ${property} is not set in the privacy channel.`,
+      details:
+        `The required property ${property} is not set in the privacy channel.`,
       data: { property },
     });
   }

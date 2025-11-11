@@ -1,7 +1,11 @@
-import { xdr, StrKey } from "@stellar/stellar-sdk";
+import { StrKey, xdr } from "@stellar/stellar-sdk";
 import { Buffer } from "buffer";
 
-export type SpendInnerSignature = { utxo: Uint8Array; sig: Buffer; exp: number };
+export type SpendInnerSignature = {
+  utxo: Uint8Array;
+  sig: Buffer;
+  exp: number;
+};
 export type ProviderInnerSignature = {
   pubKey: string;
   sig: Buffer;
@@ -60,5 +64,3 @@ export const buildSignaturesXDR = (
   const signatures = xdr.ScVal.scvVec([xdr.ScVal.scvMap(entries)]);
   return signatures.toXDR("base64");
 };
-
-

@@ -24,8 +24,8 @@ describe("Condition", () => {
   let network: string;
 
   beforeAll(async () => {
-    validPublicKey =
-      LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
+    validPublicKey = LocalSigner.generateRandom()
+      .publicKey() as Ed25519PublicKey;
     validUtxo = (await generateP256KeyPair()).publicKey as UTXOPublicKey;
 
     channelId =
@@ -42,7 +42,7 @@ describe("Condition", () => {
       const scVal = createOp.toScVal();
       const recreatedOp = MoonlightOperation.fromScVal(
         scVal,
-        UTXOOperationType.CREATE
+        UTXOOperationType.CREATE,
       );
 
       assertEquals(recreatedOp.getOperation(), UTXOOperationType.CREATE);
@@ -67,7 +67,7 @@ describe("Condition", () => {
       const scVal = spendOp.toScVal();
       const recreatedOp = MoonlightOperation.fromScVal(
         scVal,
-        UTXOOperationType.SPEND
+        UTXOOperationType.SPEND,
       );
 
       assertEquals(recreatedOp.getOperation(), UTXOOperationType.SPEND);
@@ -90,15 +90,15 @@ describe("Condition", () => {
     it("should convert to and from ScVal correctly for Spend operation with conditions", () => {
       const spendOp = MoonlightOperation.spend(validUtxo);
       spendOp.addCondition(
-        MoonlightOperation.create(validUtxo, 500n).toCondition()
+        MoonlightOperation.create(validUtxo, 500n).toCondition(),
       );
       spendOp.addCondition(
-        MoonlightOperation.create(validUtxo, 300n).toCondition()
+        MoonlightOperation.create(validUtxo, 300n).toCondition(),
       );
       const scVal = spendOp.toScVal();
       const recreatedOp = MoonlightOperation.fromScVal(
         scVal,
-        UTXOOperationType.SPEND
+        UTXOOperationType.SPEND,
       );
 
       assertEquals(recreatedOp.getOperation(), UTXOOperationType.SPEND);
@@ -107,13 +107,13 @@ describe("Condition", () => {
       assertEquals(recreatedOp.getConditions()[0].isCreate(), true);
       assertEquals(
         (recreatedOp.getConditions()[0] as CreateCondition).getUtxo(),
-        validUtxo
+        validUtxo,
       );
       assertEquals(recreatedOp.getConditions()[0].getAmount(), 500n);
       assertEquals(recreatedOp.getConditions()[1].isCreate(), true);
       assertEquals(
         (recreatedOp.getConditions()[1] as CreateCondition).getUtxo(),
-        validUtxo
+        validUtxo,
       );
       assertEquals(recreatedOp.getConditions()[1].getAmount(), 300n);
 
@@ -133,14 +133,14 @@ describe("Condition", () => {
       const scVal = depositOp.toScVal();
       const recreatedOp = MoonlightOperation.fromScVal(
         scVal,
-        UTXOOperationType.DEPOSIT
+        UTXOOperationType.DEPOSIT,
       );
 
       assertEquals(recreatedOp.getOperation(), UTXOOperationType.DEPOSIT);
       assertEquals(recreatedOp.getAmount(), 20n);
       assertEquals(
         recreatedOp.getPublicKey().toString(),
-        validPublicKey.toString()
+        validPublicKey.toString(),
       );
       assertEquals(recreatedOp.getConditions().length, 0);
 
@@ -155,37 +155,37 @@ describe("Condition", () => {
       // Cannot enforce against withdraw as it shares the same ScVal structure as Deposit
 
       depositOp.addCondition(
-        MoonlightOperation.create(validUtxo, 200n).toCondition()
+        MoonlightOperation.create(validUtxo, 200n).toCondition(),
       );
       const scValWithCondition = depositOp.toScVal();
       const recreatedOpWithCondition = MoonlightOperation.fromScVal(
         scValWithCondition,
-        UTXOOperationType.DEPOSIT
+        UTXOOperationType.DEPOSIT,
       );
 
       assertEquals(
         recreatedOpWithCondition.getOperation(),
-        UTXOOperationType.DEPOSIT
+        UTXOOperationType.DEPOSIT,
       );
       assertEquals(recreatedOpWithCondition.getAmount(), 20n);
       assertEquals(
         recreatedOpWithCondition.getPublicKey().toString(),
-        validPublicKey.toString()
+        validPublicKey.toString(),
       );
       assertEquals(recreatedOpWithCondition.getConditions().length, 1);
       assertEquals(
         recreatedOpWithCondition.getConditions()[0].isCreate(),
-        true
+        true,
       );
       assertEquals(
         (
           recreatedOpWithCondition.getConditions()[0] as CreateCondition
         ).getUtxo(),
-        validUtxo
+        validUtxo,
       );
       assertEquals(
         recreatedOpWithCondition.getConditions()[0].getAmount(),
-        200n
+        200n,
       );
     });
 
@@ -194,14 +194,14 @@ describe("Condition", () => {
       const scVal = withdrawOp.toScVal();
       const recreatedOp = MoonlightOperation.fromScVal(
         scVal,
-        UTXOOperationType.WITHDRAW
+        UTXOOperationType.WITHDRAW,
       );
 
       assertEquals(recreatedOp.getOperation(), UTXOOperationType.WITHDRAW);
       assertEquals(recreatedOp.getAmount(), 30n);
       assertEquals(
         recreatedOp.getPublicKey().toString(),
-        validPublicKey.toString()
+        validPublicKey.toString(),
       );
       assertEquals(recreatedOp.getConditions().length, 0);
 
@@ -216,37 +216,37 @@ describe("Condition", () => {
       // Cannot enforce against deposit as it shares the same ScVal structure as Withdraw
 
       withdrawOp.addCondition(
-        MoonlightOperation.create(validUtxo, 300n).toCondition()
+        MoonlightOperation.create(validUtxo, 300n).toCondition(),
       );
       const scValWithCondition = withdrawOp.toScVal();
       const recreatedOpWithCondition = MoonlightOperation.fromScVal(
         scValWithCondition,
-        UTXOOperationType.WITHDRAW
+        UTXOOperationType.WITHDRAW,
       );
 
       assertEquals(
         recreatedOpWithCondition.getOperation(),
-        UTXOOperationType.WITHDRAW
+        UTXOOperationType.WITHDRAW,
       );
       assertEquals(recreatedOpWithCondition.getAmount(), 30n);
       assertEquals(
         recreatedOpWithCondition.getPublicKey().toString(),
-        validPublicKey.toString()
+        validPublicKey.toString(),
       );
       assertEquals(recreatedOpWithCondition.getConditions().length, 1);
       assertEquals(
         recreatedOpWithCondition.getConditions()[0].isCreate(),
-        true
+        true,
       );
       assertEquals(
         (
           recreatedOpWithCondition.getConditions()[0] as CreateCondition
         ).getUtxo(),
-        validUtxo
+        validUtxo,
       );
       assertEquals(
         recreatedOpWithCondition.getConditions()[0].getAmount(),
-        300n
+        300n,
       );
     });
   });
@@ -257,7 +257,7 @@ describe("Condition", () => {
 
       const mlxdr = createOp.toMLXDR();
       const recreatedOp = MoonlightOperation.fromMLXDR(
-        mlxdr
+        mlxdr,
       ) as MoonlightOperation;
       assertEquals(recreatedOp.getOperation(), UTXOOperationType.CREATE);
       assertEquals(recreatedOp.getAmount(), 10n);
@@ -268,14 +268,14 @@ describe("Condition", () => {
       const depositOp = MoonlightOperation.deposit(validPublicKey, 20n);
       const mlxdr = depositOp.toMLXDR();
       const recreatedOp = MoonlightOperation.fromMLXDR(
-        mlxdr
+        mlxdr,
       ) as MoonlightOperation;
 
       assertEquals(recreatedOp.getOperation(), UTXOOperationType.DEPOSIT);
       assertEquals(recreatedOp.getAmount(), 20n);
       assertEquals(
         recreatedOp.getPublicKey().toString(),
-        validPublicKey.toString()
+        validPublicKey.toString(),
       );
     });
 
@@ -283,14 +283,14 @@ describe("Condition", () => {
       const withdrawOp = MoonlightOperation.withdraw(validPublicKey, 30n);
       const mlxdr = withdrawOp.toMLXDR();
       const recreatedOp = MoonlightOperation.fromMLXDR(
-        mlxdr
+        mlxdr,
       ) as MoonlightOperation;
 
       assertEquals(recreatedOp.getOperation(), UTXOOperationType.WITHDRAW);
       assertEquals(recreatedOp.getAmount(), 30n);
       assertEquals(
         recreatedOp.getPublicKey().toString(),
-        validPublicKey.toString()
+        validPublicKey.toString(),
       );
     });
 
@@ -298,7 +298,7 @@ describe("Condition", () => {
       const spendOp = MoonlightOperation.spend(validUtxo);
       const mlxdr = spendOp.toMLXDR();
       const recreatedOp = MoonlightOperation.fromMLXDR(
-        mlxdr
+        mlxdr,
       ) as MoonlightOperation;
 
       assertEquals(recreatedOp.getOperation(), UTXOOperationType.SPEND);
@@ -309,7 +309,7 @@ describe("Condition", () => {
       const ed25519Signer = LocalSigner.generateRandom();
       const depositOp = MoonlightOperation.deposit(
         ed25519Signer.publicKey() as Ed25519PublicKey,
-        50n
+        50n,
       );
 
       depositOp.addCondition(Condition.create(validUtxo, 400n));
@@ -319,26 +319,26 @@ describe("Condition", () => {
         100,
         channelId,
         assetId,
-        network
+        network,
       );
 
       const mlxdr = depositOp.toMLXDR();
 
       const recreatedOp = MoonlightOperation.fromMLXDR(
-        mlxdr
+        mlxdr,
       ) as MoonlightOperation;
 
       assertEquals(recreatedOp.getOperation(), UTXOOperationType.DEPOSIT);
       assertEquals(recreatedOp.getAmount(), 50n);
       assertEquals(
         recreatedOp.getPublicKey().toString(),
-        ed25519Signer.publicKey().toString()
+        ed25519Signer.publicKey().toString(),
       );
       assertEquals(recreatedOp.getConditions().length, 1);
       assertExists(recreatedOp.getEd25519Signature());
       assertEquals(
         recreatedOp.getEd25519Signature().toXDR(),
-        depositOp.getEd25519Signature().toXDR()
+        depositOp.getEd25519Signature().toXDR(),
       );
 
       const utxoSigner = new UTXOKeypairBase(await generateP256KeyPair());
@@ -350,23 +350,23 @@ describe("Condition", () => {
       const spendMlxdr = spendOp.toMLXDR();
 
       const recreatedSpendOp = MoonlightOperation.fromMLXDR(
-        spendMlxdr
+        spendMlxdr,
       ) as MoonlightOperation;
 
       assertEquals(recreatedSpendOp.getOperation(), UTXOOperationType.SPEND);
       assertEquals(
         recreatedSpendOp.getUtxo().toString(),
-        utxoSigner.publicKey.toString()
+        utxoSigner.publicKey.toString(),
       );
       assertEquals(recreatedSpendOp.getConditions().length, 1);
       assertExists(recreatedSpendOp.getUTXOSignature());
       assertEquals(
         recreatedSpendOp.getUTXOSignature().sig,
-        spendOp.getUTXOSignature().sig
+        spendOp.getUTXOSignature().sig,
       );
       assertEquals(
         recreatedSpendOp.getUTXOSignature().exp,
-        spendOp.getUTXOSignature().exp
+        spendOp.getUTXOSignature().exp,
       );
     });
   });

@@ -3,7 +3,7 @@ import * as asn1js from "asn1js";
 // Helper: Encode ECPrivateKey (RFC 5915)
 export function encodeECPrivateKey(
   privateKey: Uint8Array,
-  publicKey: Uint8Array
+  publicKey: Uint8Array,
 ): Uint8Array {
   // Build the ECPrivateKey structure:
   // ECPrivateKey ::= SEQUENCE {

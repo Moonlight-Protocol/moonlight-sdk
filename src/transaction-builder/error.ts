@@ -15,8 +15,6 @@ export type TransactionBuilderErrorShape = {
   data: unknown;
 };
 
-
-
 export enum Code {
   UNEXPECTED_ERROR = "TBU_000",
   PROPERTY_NOT_SET = "TBU_001",
@@ -64,7 +62,8 @@ export class PROPERTY_NOT_SET extends TransactionBuilderError {
     super({
       code: Code.PROPERTY_NOT_SET,
       message: `Property not set: ${property}`,
-      details: `The required property ${property} is not set in the transaction builder.`,
+      details:
+        `The required property ${property} is not set in the transaction builder.`,
       data: { property },
     });
   }
@@ -75,7 +74,8 @@ export class UNSUPPORTED_OP_TYPE extends TransactionBuilderError {
     super({
       code: Code.UNSUPPORTED_OP_TYPE,
       message: `Unsupported operation type: ${opType}`,
-      details: `The operation type ${opType} is not supported in the transaction builder.`,
+      details:
+        `The operation type ${opType} is not supported in the transaction builder.`,
       data: { opType },
     });
   }
@@ -86,7 +86,8 @@ export class DUPLICATE_CREATE_OP extends TransactionBuilderError {
     super({
       code: Code.DUPLICATE_CREATE_OP,
       message: `Duplicate create operation for UTXO public key: ${utxoPk}`,
-      details: `A create operation for the UTXO public key ${utxoPk} already exists in the transaction builder.`,
+      details:
+        `A create operation for the UTXO public key ${utxoPk} already exists in the transaction builder.`,
       data: { utxoPk },
     });
   }
@@ -97,7 +98,8 @@ export class DUPLICATE_SPEND_OP extends TransactionBuilderError {
     super({
       code: Code.DUPLICATE_SPEND_OP,
       message: `Duplicate spend operation for UTXO public key: ${utxoPk}`,
-      details: `A spend operation for the UTXO public key ${utxoPk} already exists in the transaction builder.`,
+      details:
+        `A spend operation for the UTXO public key ${utxoPk} already exists in the transaction builder.`,
       data: { utxoPk },
     });
   }
@@ -108,7 +110,8 @@ export class DUPLICATE_DEPOSIT_OP extends TransactionBuilderError {
     super({
       code: Code.DUPLICATE_DEPOSIT_OP,
       message: `Duplicate deposit operation for public key: ${publicKey}`,
-      details: `A deposit operation for the public key ${publicKey} already exists in the transaction builder.`,
+      details:
+        `A deposit operation for the public key ${publicKey} already exists in the transaction builder.`,
       data: { publicKey },
     });
   }
@@ -118,7 +121,8 @@ export class DUPLICATE_WITHDRAW_OP extends TransactionBuilderError {
     super({
       code: Code.DUPLICATE_WITHDRAW_OP,
       message: `Duplicate withdraw operation for public key: ${publicKey}`,
-      details: `A withdraw operation for the public key ${publicKey} already exists in the transaction builder.`,
+      details:
+        `A withdraw operation for the public key ${publicKey} already exists in the transaction builder.`,
       data: { publicKey },
     });
   }
@@ -129,7 +133,8 @@ export class NO_SPEND_OPS extends TransactionBuilderError {
     super({
       code: Code.NO_SPEND_OPS,
       message: `No spend operations found for the UTXO: ${utxoPk}`,
-      details: `There are no spend operations associated with the UTXO public key ${utxoPk} in the transaction builder.`,
+      details:
+        `There are no spend operations associated with the UTXO public key ${utxoPk} in the transaction builder.`,
       data: { utxoPk },
     });
   }
@@ -140,7 +145,8 @@ export class NO_DEPOSIT_OPS extends TransactionBuilderError {
     super({
       code: Code.NO_DEPOSIT_OPS,
       message: `No deposit operations found for the public key: ${publicKey}`,
-      details: `There are no deposit operations associated with the public key ${publicKey} in the transaction builder.`,
+      details:
+        `There are no deposit operations associated with the public key ${publicKey} in the transaction builder.`,
       data: { publicKey },
     });
   }
@@ -151,7 +157,8 @@ export class NO_WITHDRAW_OPS extends TransactionBuilderError {
     super({
       code: Code.NO_WITHDRAW_OPS,
       message: `No withdraw operations found for the public key: ${publicKey}`,
-      details: `There are no withdraw operations associated with the public key ${publicKey} in the transaction builder.`,
+      details:
+        `There are no withdraw operations associated with the public key ${publicKey} in the transaction builder.`,
       data: { publicKey },
     });
   }
@@ -161,8 +168,10 @@ export class NO_EXT_OPS extends TransactionBuilderError {
   constructor(publicKey: Ed25519PublicKey) {
     super({
       code: Code.NO_EXT_OPS,
-      message: `No deposit or withdraw operations found for the public key: ${publicKey}`,
-      details: `There are no deposit or withdraw operations associated with the public key ${publicKey} in the transaction builder.`,
+      message:
+        `No deposit or withdraw operations found for the public key: ${publicKey}`,
+      details:
+        `There are no deposit or withdraw operations associated with the public key ${publicKey} in the transaction builder.`,
       data: { publicKey },
     });
   }
@@ -173,7 +182,8 @@ export class AMOUNT_TOO_LOW extends TransactionBuilderError {
     super({
       code: Code.AMOUNT_TOO_LOW,
       message: `Amount too low: ${amount}`,
-      details: `The provided amount ${amount} is below the minimum required. It must be greater than zero.`,
+      details:
+        `The provided amount ${amount} is below the minimum required. It must be greater than zero.`,
       data: { amount: `${amount}` },
     });
   }
@@ -184,7 +194,8 @@ export class MISSING_PROVIDER_SIGNATURE extends TransactionBuilderError {
     super({
       code: Code.MISSING_PROVIDER_SIGNATURE,
       message: `Missing provider signature`,
-      details: `No provider signatures have been added to the transaction builder.`,
+      details:
+        `No provider signatures have been added to the transaction builder.`,
       data: {},
     });
   }
@@ -195,7 +206,8 @@ export class NO_CONDITIONS_FOR_SPEND_OP extends TransactionBuilderError {
     super({
       code: Code.NO_CONDITIONS_FOR_SPEND_OP,
       message: `No conditions found for spend operation with UTXO: ${utxoPk}`,
-      details: `The spend operation associated with the UTXO public key ${utxoPk} does not have any conditions set in the transaction builder.`,
+      details:
+        `The spend operation associated with the UTXO public key ${utxoPk} does not have any conditions set in the transaction builder.`,
       data: { utxoPk },
     });
   }

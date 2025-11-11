@@ -3,17 +3,17 @@ import { assertEquals, assertExists } from "@std/assert";
 import { beforeAll, describe, it } from "@std/testing/bdd";
 
 import {
+  Contract,
+  type ContractId,
+  type Ed25519PublicKey,
+  type Ed25519SecretKey,
+  initializeWithFriendbot,
   LocalSigner,
   NativeAccount,
-  TestNet,
-  initializeWithFriendbot,
-  Contract,
   P_SimulateTransactionErrors,
-  type Ed25519PublicKey,
-  type TransactionConfig,
-  type ContractId,
+  TestNet,
   type TestNetConfig,
-  type Ed25519SecretKey,
+  type TransactionConfig,
 } from "@colibri/core";
 
 import { Buffer } from "node:buffer";
@@ -23,20 +23,20 @@ import { Server } from "@stellar/stellar-sdk/rpc";
 import { disableSanitizeConfig } from "../utils/disable-sanitize-config.ts";
 
 import {
-  AuthSpec,
   AuthInvokeMethods,
+  AuthSpec,
   ChannelInvokeMethods,
   ChannelReadMethods,
   ChannelSpec,
-  UTXOStatus,
-  MoonlightTransactionBuilder,
-  MoonlightOperation as op,
+  type ChannelTypes,
   generateNonce,
+  MoonlightOperation as op,
+  MoonlightTransactionBuilder,
+  PrivacyChannel,
   StellarDerivator,
   StellarNetworkId,
   UtxoBasedStellarAccount,
-  type ChannelTypes,
-  PrivacyChannel,
+  UTXOStatus,
 } from "../../mod.ts";
 
 describe(
@@ -50,11 +50,11 @@ describe(
     const userKeys = Keypair.random();
 
     const provider = NativeAccount.fromMasterSigner(
-      LocalSigner.fromSecret(providerKeys.secret() as Ed25519SecretKey)
+      LocalSigner.fromSecret(providerKeys.secret() as Ed25519SecretKey),
     );
 
     const user = NativeAccount.fromMasterSigner(
-      LocalSigner.fromSecret(userKeys.secret() as Ed25519SecretKey)
+      LocalSigner.fromSecret(userKeys.secret() as Ed25519SecretKey),
     );
 
     const txConfig: TransactionConfig = {
@@ -65,7 +65,7 @@ describe(
     };
 
     const assetId = Asset.native().contractId(
-      networkConfig.networkPassphrase
+      networkConfig.networkPassphrase,
     ) as ContractId;
 
     let authWasm: Buffer;
@@ -79,17 +79,17 @@ describe(
       // Initialize accounts with friendbot
       await initializeWithFriendbot(
         networkConfig.friendbotUrl,
-        admin.address() as Ed25519PublicKey
+        admin.address() as Ed25519PublicKey,
       );
 
       await initializeWithFriendbot(
         networkConfig.friendbotUrl,
-        provider.address() as Ed25519PublicKey
+        provider.address() as Ed25519PublicKey,
       );
 
       await initializeWithFriendbot(
         networkConfig.friendbotUrl,
-        user.address() as Ed25519PublicKey
+        user.address() as Ed25519PublicKey,
       );
 
       // Load contract WASMs
@@ -162,7 +162,7 @@ describe(
           networkConfig,
           channelId,
           authId,
-          assetId
+          assetId,
         );
       });
 
@@ -208,7 +208,7 @@ describe(
         // Create a fresh derivator for this test
         const stellarDerivator = new StellarDerivator().withNetworkAndContract(
           StellarNetworkId.Testnet,
-          channelId
+          channelId,
         );
 
         const utxoAccount = new UtxoBasedStellarAccount({
@@ -234,7 +234,7 @@ describe(
         assertEquals(
           freeUtxos.length,
           batchSize,
-          "Should have derived the correct number of UTXOs"
+          "Should have derived the correct number of UTXOs",
         );
 
         // Verify each UTXO has required properties
@@ -257,7 +257,7 @@ describe(
         // Create a fresh derivator for this test
         const freshDerivator = new StellarDerivator().withNetworkAndContract(
           StellarNetworkId.Testnet,
-          channelId
+          channelId,
         );
 
         const utxoAccount = new UtxoBasedStellarAccount({
@@ -290,7 +290,7 @@ describe(
           channelId: channelId,
           authId: authId,
           assetId: Asset.native().contractId(
-            networkConfig.networkPassphrase
+            networkConfig.networkPassphrase,
           ) as ContractId,
         });
 
@@ -299,7 +299,7 @@ describe(
         depositTx.addOperation(
           op
             .deposit(user.address() as Ed25519PublicKey, depositAmount)
-            .addConditions([createOp.toCondition()])
+            .addConditions([createOp.toCondition()]),
         );
 
         // Get latest ledger for signature expiration
@@ -311,13 +311,13 @@ describe(
         await depositTx.signExtWithEd25519(
           userKeys,
           signatureExpirationLedger,
-          nonce
+          nonce,
         );
 
         await depositTx.signWithProvider(
           providerKeys,
           signatureExpirationLedger,
-          nonce
+          nonce,
         );
 
         // Execute the deposit transaction
@@ -335,7 +335,7 @@ describe(
               console.error("Error invoking contract:", e);
               console.error(
                 "Transaction XDR:",
-                e.meta.data.input.transaction.toXDR()
+                e.meta.data.input.transaction.toXDR(),
               );
             }
             throw e;
@@ -355,7 +355,7 @@ describe(
         assertEquals(
           balanceResult,
           depositAmount,
-          "UTXO balance should match the deposited amount"
+          "UTXO balance should match the deposited amount",
         );
 
         // Verify the UTXO state changed to UNSPENT
@@ -366,7 +366,7 @@ describe(
         assertEquals(
           unspentUtxo.balance,
           depositAmount,
-          "UTXO should have correct balance"
+          "UTXO should have correct balance",
         );
       });
 
@@ -376,7 +376,7 @@ describe(
         // Create a fresh derivator for this test
         const stellarDerivator = new StellarDerivator().withNetworkAndContract(
           StellarNetworkId.Testnet,
-          channelId
+          channelId,
         );
 
         const utxoAccount = new UtxoBasedStellarAccount({
@@ -413,7 +413,7 @@ describe(
             channelId: channelId,
             authId: authId,
             assetId: Asset.native().contractId(
-              networkConfig.networkPassphrase
+              networkConfig.networkPassphrase,
             ) as ContractId,
           });
 
@@ -422,7 +422,7 @@ describe(
           depositTx.addOperation(
             op
               .deposit(user.address() as Ed25519PublicKey, amount)
-              .addConditions([createOp.toCondition()])
+              .addConditions([createOp.toCondition()]),
           );
 
           const latestLedger = await rpc.getLatestLedger();
@@ -432,13 +432,13 @@ describe(
           await depositTx.signExtWithEd25519(
             userKeys,
             signatureExpirationLedger,
-            nonce
+            nonce,
           );
 
           await depositTx.signWithProvider(
             providerKeys,
             signatureExpirationLedger,
-            nonce
+            nonce,
           );
 
           await channelClient.invokeRaw({
@@ -463,7 +463,7 @@ describe(
           assertEquals(
             unspentUtxos[i].balance,
             amounts[i],
-            `UTXO ${i} should have correct balance`
+            `UTXO ${i} should have correct balance`,
           );
         }
 
@@ -472,7 +472,7 @@ describe(
         assertEquals(
           totalBalance,
           expectedTotal,
-          "Total balance should be sum of all UNSPENT UTXOs"
+          "Total balance should be sum of all UNSPENT UTXOs",
         );
       });
 
@@ -483,7 +483,7 @@ describe(
         // Create a fresh derivator for this test
         const stellarDerivator = new StellarDerivator().withNetworkAndContract(
           StellarNetworkId.Testnet,
-          channelId
+          channelId,
         );
 
         const utxoAccount = new UtxoBasedStellarAccount({
@@ -515,7 +515,7 @@ describe(
           channelId: channelId,
           authId: authId,
           assetId: Asset.native().contractId(
-            networkConfig.networkPassphrase
+            networkConfig.networkPassphrase,
           ) as ContractId,
         });
 
@@ -524,7 +524,7 @@ describe(
         depositTx.addOperation(
           op
             .deposit(user.address() as Ed25519PublicKey, depositAmount)
-            .addConditions([createOp.toCondition()])
+            .addConditions([createOp.toCondition()]),
         );
 
         const latestLedger = await rpc.getLatestLedger();
@@ -534,13 +534,13 @@ describe(
         await depositTx.signExtWithEd25519(
           userKeys,
           signatureExpirationLedger,
-          nonce
+          nonce,
         );
 
         await depositTx.signWithProvider(
           providerKeys,
           signatureExpirationLedger,
-          nonce
+          nonce,
         );
 
         await channelClient.invokeRaw({
@@ -569,7 +569,7 @@ describe(
         assertEquals(
           balanceBeforeWithdraw,
           depositAmount,
-          "UTXO should have balance before withdraw"
+          "UTXO should have balance before withdraw",
         );
 
         // Now withdraw from the UTXO
@@ -578,7 +578,7 @@ describe(
           channelId: channelId,
           authId: authId,
           assetId: Asset.native().contractId(
-            networkConfig.networkPassphrase
+            networkConfig.networkPassphrase,
           ) as ContractId,
         });
 
@@ -595,7 +595,7 @@ describe(
         await withdrawTx.signWithProvider(
           providerKeys,
           signatureExpirationLedger,
-          generateNonce()
+          generateNonce(),
         );
 
         // Execute the withdraw transaction
@@ -613,7 +613,7 @@ describe(
               console.error("Error invoking withdraw contract:", e);
               console.error(
                 "Transaction XDR:",
-                e.meta.data.input.transaction.toXDR()
+                e.meta.data.input.transaction.toXDR(),
               );
             }
             throw e;
@@ -633,7 +633,7 @@ describe(
         assertEquals(
           balanceResult,
           0n,
-          "UTXO balance should be 0 after withdrawal"
+          "UTXO balance should be 0 after withdrawal",
         );
 
         // Verify the UTXO state changed to SPENT
@@ -650,7 +650,7 @@ describe(
         // Create a fresh derivator for this test
         const stellarDerivator = new StellarDerivator().withNetworkAndContract(
           StellarNetworkId.Testnet,
-          channelId
+          channelId,
         );
 
         const utxoAccount = new UtxoBasedStellarAccount({
@@ -686,7 +686,7 @@ describe(
             channelId: channelId,
             authId: authId,
             assetId: Asset.native().contractId(
-              networkConfig.networkPassphrase
+              networkConfig.networkPassphrase,
             ) as ContractId,
           });
 
@@ -695,7 +695,7 @@ describe(
           depositTx.addOperation(
             op
               .deposit(user.address() as Ed25519PublicKey, amount)
-              .addConditions([createOp.toCondition()])
+              .addConditions([createOp.toCondition()]),
           );
 
           const latestLedger = await rpc.getLatestLedger();
@@ -705,13 +705,13 @@ describe(
           await depositTx.signExtWithEd25519(
             userKeys,
             signatureExpirationLedger,
-            nonce
+            nonce,
           );
 
           await depositTx.signWithProvider(
             providerKeys,
             signatureExpirationLedger,
-            nonce
+            nonce,
           );
 
           await channelClient.invokeRaw({
@@ -732,7 +732,7 @@ describe(
         assertEquals(
           unspentUtxos.length,
           2,
-          "Should have 2 UNSPENT UTXOs after batchLoad"
+          "Should have 2 UNSPENT UTXOs after batchLoad",
         );
 
         // Verify that 3 UTXOs are still FREE (no balances)
@@ -740,7 +740,7 @@ describe(
         assertEquals(
           freeUtxosAfterLoad.length,
           3,
-          "Should have 3 FREE UTXOs after batchLoad"
+          "Should have 3 FREE UTXOs after batchLoad",
         );
 
         // Verify the balances are correct
@@ -748,7 +748,7 @@ describe(
           assertEquals(
             unspentUtxos[i].balance,
             amounts[i],
-            `UTXO ${i} should have correct balance after batchLoad`
+            `UTXO ${i} should have correct balance after batchLoad`,
           );
         }
 
@@ -758,7 +758,7 @@ describe(
         assertEquals(
           totalBalance,
           expectedTotal,
-          "Total balance should be sum of UNSPENT UTXOs"
+          "Total balance should be sum of UNSPENT UTXOs",
         );
       });
     });
@@ -770,7 +770,7 @@ describe(
         // Create a fresh derivator for this test
         const stellarDerivator = new StellarDerivator().withNetworkAndContract(
           StellarNetworkId.Testnet,
-          channelId
+          channelId,
         );
 
         const utxoAccount = new UtxoBasedStellarAccount({
@@ -806,7 +806,7 @@ describe(
             channelId: channelId,
             authId: authId,
             assetId: Asset.native().contractId(
-              networkConfig.networkPassphrase
+              networkConfig.networkPassphrase,
             ) as ContractId,
           });
 
@@ -815,7 +815,7 @@ describe(
           depositTx.addOperation(
             op
               .deposit(user.address() as Ed25519PublicKey, amount)
-              .addConditions([createOp.toCondition()])
+              .addConditions([createOp.toCondition()]),
           );
 
           const latestLedger = await rpc.getLatestLedger();
@@ -825,13 +825,13 @@ describe(
           await depositTx.signExtWithEd25519(
             userKeys,
             signatureExpirationLedger,
-            nonce
+            nonce,
           );
 
           await depositTx.signWithProvider(
             providerKeys,
             signatureExpirationLedger,
-            nonce
+            nonce,
           );
 
           await channelClient.invokeRaw({
@@ -848,25 +848,25 @@ describe(
 
         // Step 3: Verify states after deposits (3 UNSPENT, 2 FREE)
         const unspentAfterDeposits = utxoAccount.getUTXOsByState(
-          UTXOStatus.UNSPENT
+          UTXOStatus.UNSPENT,
         );
         const freeAfterDeposits = utxoAccount.getUTXOsByState(UTXOStatus.FREE);
         assertEquals(
           unspentAfterDeposits.length,
           3,
-          "Should have 3 UNSPENT UTXOs after deposits"
+          "Should have 3 UNSPENT UTXOs after deposits",
         );
         assertEquals(
           freeAfterDeposits.length,
           2,
-          "Should have 2 FREE UTXOs after deposits"
+          "Should have 2 FREE UTXOs after deposits",
         );
 
         const totalAfterDeposits = utxoAccount.getTotalBalance();
         assertEquals(
           totalAfterDeposits,
           600000n,
-          "Total balance should be 600000 after deposits"
+          "Total balance should be 600000 after deposits",
         );
 
         // Step 4: Withdraw from first 2 UTXOs
@@ -879,7 +879,7 @@ describe(
             channelId: channelId,
             authId: authId,
             assetId: Asset.native().contractId(
-              networkConfig.networkPassphrase
+              networkConfig.networkPassphrase,
             ) as ContractId,
           });
 
@@ -894,13 +894,13 @@ describe(
 
           await withdrawTx.signWithSpendUtxo(
             testUtxo,
-            signatureExpirationLedger
+            signatureExpirationLedger,
           );
 
           await withdrawTx.signWithProvider(
             providerKeys,
             signatureExpirationLedger,
-            generateNonce()
+            generateNonce(),
           );
 
           await channelClient.invokeRaw({
@@ -917,34 +917,34 @@ describe(
 
         // Step 5: Verify states after withdraws (1 UNSPENT, 2 SPENT, 2 FREE)
         const unspentAfterWithdraws = utxoAccount.getUTXOsByState(
-          UTXOStatus.UNSPENT
+          UTXOStatus.UNSPENT,
         );
         const spentAfterWithdraws = utxoAccount.getUTXOsByState(
-          UTXOStatus.SPENT
+          UTXOStatus.SPENT,
         );
         const freeAfterWithdraws = utxoAccount.getUTXOsByState(UTXOStatus.FREE);
 
         assertEquals(
           unspentAfterWithdraws.length,
           1,
-          "Should have 1 UNSPENT UTXO after withdraws"
+          "Should have 1 UNSPENT UTXO after withdraws",
         );
         assertEquals(
           spentAfterWithdraws.length,
           2,
-          "Should have 2 SPENT UTXOs after withdraws"
+          "Should have 2 SPENT UTXOs after withdraws",
         );
         assertEquals(
           freeAfterWithdraws.length,
           2,
-          "Should have 2 FREE UTXOs after withdraws"
+          "Should have 2 FREE UTXOs after withdraws",
         );
 
         const totalAfterWithdraws = utxoAccount.getTotalBalance();
         assertEquals(
           totalAfterWithdraws,
           300000n,
-          "Total balance should be 300000 after withdraws (only third UTXO)"
+          "Total balance should be 300000 after withdraws (only third UTXO)",
         );
 
         // Step 6: Make new deposit to one of the FREE UTXOs
@@ -956,7 +956,7 @@ describe(
           channelId: channelId,
           authId: authId,
           assetId: Asset.native().contractId(
-            networkConfig.networkPassphrase
+            networkConfig.networkPassphrase,
           ) as ContractId,
         });
 
@@ -965,7 +965,7 @@ describe(
         newDepositTx.addOperation(
           op
             .deposit(user.address() as Ed25519PublicKey, newDepositAmount)
-            .addConditions([createOp.toCondition()])
+            .addConditions([createOp.toCondition()]),
         );
 
         const latestLedger = await rpc.getLatestLedger();
@@ -975,13 +975,13 @@ describe(
         await newDepositTx.signExtWithEd25519(
           userKeys,
           signatureExpirationLedger,
-          nonce
+          nonce,
         );
 
         await newDepositTx.signWithProvider(
           providerKeys,
           signatureExpirationLedger,
-          nonce
+          nonce,
         );
 
         await channelClient.invokeRaw({
@@ -1003,7 +1003,7 @@ describe(
         assertEquals(
           finalUnspent.length,
           2,
-          "Should have 2 UNSPENT UTXOs at end"
+          "Should have 2 UNSPENT UTXOs at end",
         );
         assertEquals(finalSpent.length, 2, "Should have 2 SPENT UTXOs at end");
         assertEquals(finalFree.length, 1, "Should have 1 FREE UTXO at end");
@@ -1013,21 +1013,21 @@ describe(
         assertEquals(
           finalTotal,
           expectedFinalTotal,
-          "Final balance should be sum of remaining UNSPENT UTXOs"
+          "Final balance should be sum of remaining UNSPENT UTXOs",
         );
 
         // Verify individual balances
         assertEquals(
           finalUnspent[0].balance,
           300000n,
-          "First UNSPENT should have 300000"
+          "First UNSPENT should have 300000",
         );
         assertEquals(
           finalUnspent[1].balance,
           150000n,
-          "Second UNSPENT should have 150000"
+          "Second UNSPENT should have 150000",
         );
       });
     });
-  }
+  },
 );
