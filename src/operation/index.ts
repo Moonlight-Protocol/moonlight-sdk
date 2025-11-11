@@ -1,20 +1,38 @@
-import { type Ed25519PublicKey, StrKey } from "@colibri/core";
+import {
+  ContractId,
+  type Ed25519PublicKey,
+  isTransactionSigner,
+  StrKey,
+  TransactionSigner,
+} from "@colibri/core";
 import type { Condition as ConditionType } from "../conditions/types.ts";
 import { UTXOOperationType } from "./types.ts";
 import type {
   BaseOperation,
   CreateOperation,
   DepositOperation,
+  OperationSignature,
   SpendOperation,
   WithdrawOperation,
 } from "./types.ts";
 
 import { Condition } from "../conditions/index.ts";
-import { nativeToScVal, xdr } from "@stellar/stellar-sdk";
+import {
+  authorizeEntry,
+  Keypair,
+  nativeToScVal,
+  xdr,
+} from "@stellar/stellar-sdk";
 import { Buffer } from "node:buffer";
-import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
+import type {
+  IUTXOKeypairBase,
+  UTXOPublicKey,
+} from "../core/utxo-keypair-base/types.ts";
 import * as E from "./error.ts";
 import { assert } from "../utils/assert/assert.ts";
+import { buildAuthPayloadHash } from "../utils/auth/build-auth-payload.ts";
+import { generateNonce } from "../utils/common/index.ts";
+import { buildDepositAuthEntry } from "../utils/auth/deposit-auth-entry copy.ts";
 
 export class MoonlightOperation implements BaseOperation {
   private _op: UTXOOperationType;
@@ -22,6 +40,9 @@ export class MoonlightOperation implements BaseOperation {
   private _publicKey?: Ed25519PublicKey;
   private _utxo?: UTXOPublicKey;
   private _conditions?: ConditionType[];
+
+  private _utxoSignature?: OperationSignature;
+  private _ed25519Signature?: xdr.SorobanAuthorizationEntry;
 
   private constructor({
     op,
@@ -116,15 +137,26 @@ export class MoonlightOperation implements BaseOperation {
   private require(arg: "_publicKey"): Ed25519PublicKey;
   private require(arg: "_utxo"): UTXOPublicKey;
   private require(arg: "_conditions"): ConditionType[];
+  private require(arg: "_utxoSignature"): OperationSignature;
+  private require(arg: "_ed25519Signature"): xdr.SorobanAuthorizationEntry;
 
   private require(
-    arg: "_op" | "_amount" | "_publicKey" | "_utxo" | "_conditions"
+    arg:
+      | "_op"
+      | "_amount"
+      | "_publicKey"
+      | "_utxo"
+      | "_conditions"
+      | "_utxoSignature"
+      | "_ed25519Signature"
   ):
     | UTXOOperationType
     | bigint
     | Ed25519PublicKey
     | UTXOPublicKey
-    | ConditionType[] {
+    | ConditionType[]
+    | OperationSignature
+    | xdr.SorobanAuthorizationEntry {
     if (this[arg] !== undefined) return this[arg];
     throw new E.PROPERTY_NOT_SET(arg);
   }
@@ -225,6 +257,40 @@ export class MoonlightOperation implements BaseOperation {
     return this.require("_utxo");
   }
 
+  /**
+   * Returns the UTXO signature for this operation.
+   * @returns The UTXO signature as an OperationSignature object
+   * @throws {Error} If the signature is not set
+   */
+  public getUTXOSignature(): OperationSignature {
+    return this.require("_utxoSignature");
+  }
+
+  /**
+   * Sets the UTXO signature for this operation.
+   * @param signature - The OperationSignature to set
+   */
+  private setUTXOSignature(signature: OperationSignature) {
+    this._utxoSignature = signature;
+  }
+
+  /**
+   *  Returns the Ed25519 signature for this operation.
+   * @returns The Ed25519 signature as a SorobanAuthorizationEntry
+   * @throws {Error} If the signature is not set
+   */
+  public getEd25519Signature(): xdr.SorobanAuthorizationEntry {
+    return this.require("_ed25519Signature");
+  }
+
+  /**
+   *  Sets the Ed25519 signature for this operation.
+   * @param signature
+   */
+  private setEd25519Signature(signature: xdr.SorobanAuthorizationEntry) {
+    this._ed25519Signature = signature;
+  }
+
   //==========================================
   // Meta Management Methods
   //==========================================
@@ -248,6 +314,106 @@ export class MoonlightOperation implements BaseOperation {
     return this;
   }
 
+  /**
+   * Signs the operation with a UTXO keypair.
+   * @param utxo The UTXO keypair to use for signing
+   * @param channelId The channel ID to include in the signature
+   * @param signatureExpirationLedger The ledger sequence number at which the signature expires
+   * @returns The signed operation
+   */
+  public async signWithUTXO(
+    utxo: IUTXOKeypairBase,
+    channelId: ContractId,
+    signatureExpirationLedger: number
+  ): Promise<this> {
+    assert(this.isSignedByUTXO() === false, new E.OP_ALREADY_SIGNED("UTXO"));
+
+    assert(
+      this.getOperation() === UTXOOperationType.SPEND,
+      new E.OP_IS_NOT_SIGNABLE(this.getOperation(), "UTXO")
+    );
+
+    const conditions = this.getConditions();
+
+    assert(conditions.length > 0, new E.OP_HAS_NO_CONDITIONS(this.getUtxo()));
+
+    const signedHash = await utxo.signPayload(
+      await buildAuthPayloadHash({
+        contractId: channelId,
+        conditions,
+        liveUntilLedger: signatureExpirationLedger,
+      })
+    );
+
+    this.setUTXOSignature({
+      sig: Buffer.from(signedHash),
+      exp: signatureExpirationLedger,
+    });
+
+    return this;
+  }
+
+  public async signWithEd25519(
+    depositorKeys: TransactionSigner | Keypair,
+    signatureExpirationLedger: number,
+    channelId: ContractId,
+    assetId: ContractId,
+    networkPassphrase: string,
+    nonce?: string
+  ): Promise<this> {
+    assert(
+      this.isSignedByEd25519() === false,
+      new E.OP_ALREADY_SIGNED("Ed25519")
+    );
+
+    assert(
+      this.getOperation() === UTXOOperationType.DEPOSIT,
+      new E.OP_IS_NOT_SIGNABLE(this.getOperation(), "Ed25519")
+    );
+
+    assert(
+      depositorKeys.publicKey() === this.getPublicKey(),
+      new E.SIGNER_IS_NOT_DEPOSITOR(
+        depositorKeys.publicKey(),
+        this.getPublicKey()
+      )
+    );
+
+    if (!nonce) nonce = generateNonce();
+
+    const rawAuthEntry = await buildDepositAuthEntry({
+      channelId,
+      assetId,
+      depositor: depositorKeys.publicKey() as Ed25519PublicKey,
+      amount: this.getAmount(),
+      conditions: [
+        xdr.ScVal.scvVec(this.getConditions().map((c) => c.toScVal())),
+      ],
+      signatureExpirationLedger,
+      nonce,
+    });
+
+    let signedAuthEntry: xdr.SorobanAuthorizationEntry;
+
+    if (isTransactionSigner(depositorKeys)) {
+      signedAuthEntry = await depositorKeys.signSorobanAuthEntry(
+        rawAuthEntry,
+        signatureExpirationLedger,
+        networkPassphrase
+      );
+    } else {
+      signedAuthEntry = await authorizeEntry(
+        rawAuthEntry,
+        depositorKeys,
+        signatureExpirationLedger,
+        networkPassphrase
+      );
+    }
+
+    this.setEd25519Signature(signedAuthEntry);
+
+    return this;
+  }
   //==========================================
   // Type Guard Methods
   //==========================================
@@ -334,6 +500,14 @@ export class MoonlightOperation implements BaseOperation {
       this._conditions.length > 0
       ? true
       : false;
+  }
+
+  public isSignedByUTXO(): boolean {
+    return this._utxoSignature !== undefined;
+  }
+
+  public isSignedByEd25519(): boolean {
+    return this._ed25519Signature !== undefined;
   }
 
   //==========================================

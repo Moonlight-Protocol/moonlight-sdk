@@ -15,6 +15,8 @@ export type TransactionBuilderErrorShape = {
   data: unknown;
 };
 
+
+
 export enum Code {
   UNEXPECTED_ERROR = "TBU_000",
   PROPERTY_NOT_SET = "TBU_001",

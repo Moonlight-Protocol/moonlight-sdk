@@ -26,6 +26,10 @@ export enum Code {
   OP_IS_NOT_SPEND = "OPR_007",
   OP_IS_NOT_DEPOSIT = "OPR_008",
   OP_IS_NOT_WITHDRAW = "OPR_009",
+  OP_IS_NOT_SIGNABLE = "OPR_010",
+  OP_HAS_NO_CONDITIONS = "OPR_011",
+  SIGNER_IS_NOT_DEPOSITOR = "OPR_012",
+  OP_ALREADY_SIGNED = "OPR_013",
 }
 
 export abstract class OperationError extends MoonlightError<Code, Meta> {
@@ -148,6 +152,50 @@ export class OP_IS_NOT_WITHDRAW extends OperationError {
   }
 }
 
+export class OP_IS_NOT_SIGNABLE extends OperationError {
+  constructor(opType: string, signType: string) {
+    super({
+      code: Code.OP_IS_NOT_SIGNABLE,
+      message: `Operation of type  ${opType} is not signable with ${signType}`,
+      details: `The operation type ${opType} does not support signing with ${signType}.`,
+      data: { opType },
+    });
+  }
+}
+
+export class OP_HAS_NO_CONDITIONS extends OperationError {
+  constructor(utxoPublicKey: UTXOPublicKey) {
+    super({
+      code: Code.OP_HAS_NO_CONDITIONS,
+      message: `The SPEND operation for UTXO ${utxoPublicKey} has no conditions.`,
+      details: `The operation of UTXO ${utxoPublicKey} cannot be signed because it has no conditions.`,
+      data: { utxoPublicKey },
+    });
+  }
+}
+
+export class SIGNER_IS_NOT_DEPOSITOR extends OperationError {
+  constructor(signerPk: string, depositorPk: string) {
+    super({
+      code: Code.SIGNER_IS_NOT_DEPOSITOR,
+      message: `Signer public key ${signerPk} does not match depositor public key ${depositorPk}.`,
+      details: `The operation cannot be signed because the signer's public key does not match the depositor's public key defined in the operation.`,
+      data: { signerPk, depositorPk },
+    });
+  }
+}
+
+export class OP_ALREADY_SIGNED extends OperationError {
+  constructor(signatureType: string) {
+    super({
+      code: Code.OP_ALREADY_SIGNED,
+      message: `Operation is already signed.`,
+      details: `The operation cannot be signed again because it is already signed with ${signatureType}.`,
+      data: { signatureType },
+    });
+  }
+}
+
 export const OPR_ERRORS = {
   [Code.AMOUNT_TOO_LOW]: AMOUNT_TOO_LOW,
   [Code.INVALID_ED25519_PK]: INVALID_ED25519_PK,
@@ -159,4 +207,8 @@ export const OPR_ERRORS = {
   [Code.OP_IS_NOT_SPEND]: OP_IS_NOT_SPEND,
   [Code.OP_IS_NOT_DEPOSIT]: OP_IS_NOT_DEPOSIT,
   [Code.OP_IS_NOT_WITHDRAW]: OP_IS_NOT_WITHDRAW,
+  [Code.OP_IS_NOT_SIGNABLE]: OP_IS_NOT_SIGNABLE,
+  [Code.OP_HAS_NO_CONDITIONS]: OP_HAS_NO_CONDITIONS,
+  [Code.SIGNER_IS_NOT_DEPOSITOR]: SIGNER_IS_NOT_DEPOSITOR,
+  [Code.OP_ALREADY_SIGNED]: OP_ALREADY_SIGNED,
 };
