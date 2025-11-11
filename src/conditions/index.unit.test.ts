@@ -292,11 +292,6 @@ describe("Condition", () => {
         recreatedWithdrawCondition.getPublicKey(),
         withdrawCondition.getPublicKey()
       );
-
-      console.log("MLXDR Conversion tests passed");
-      console.log(" CREATE MLXDR:", mlxdrString);
-      console.log("DEPOSIT MLXDR:", mlxdrStringDeposit);
-      console.log("WITHDRAW MLXDR:", mlxdrStringWithdraw);
     });
   });
 

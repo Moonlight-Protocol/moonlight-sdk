@@ -397,28 +397,6 @@ export class MoonlightTransactionBuilder {
     );
   }
 
-  // public getExtAuthEntry(
-  //   address: Ed25519PublicKey,
-  //   nonce: string,
-  //   signatureExpirationLedger: number
-  // ): xdr.SorobanAuthorizationEntry {
-  //   const deposit = this.getDepositOperation(address);
-
-  //   assert(deposit, new E.NO_DEPOSIT_OPS(address));
-
-  //   return buildDepositAuthEntry({
-  //     channelId: this.getChannelId(),
-  //     assetId: this.getAsset().contractId(this.network),
-  //     depositor: address,
-  //     amount: deposit.getAmount(),
-  //     conditions: [
-  //       xdr.ScVal.scvVec(deposit.getConditions().map((c) => c.toScVal())),
-  //     ],
-  //     nonce,
-  //     signatureExpirationLedger,
-  //   });
-  // }
-
   public getAuthRequirementArgs(): xdr.ScVal[] {
     if (this.getSpendOperations().length === 0) return [];
 

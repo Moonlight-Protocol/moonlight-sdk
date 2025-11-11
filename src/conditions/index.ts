@@ -372,12 +372,6 @@ export class Condition implements BaseCondition {
   }
 
   /**
-   * Converts this condition to a custom Moonlight XDR format.
-   *
-   */
-  // public toMLXDR(): string {}
-
-  /**
    * Converts this condition to XDR (External Data Representation) format.
    * XDR is the serialization format used by the Stellar network for all data structures.
    *

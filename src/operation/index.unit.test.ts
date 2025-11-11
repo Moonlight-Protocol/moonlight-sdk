@@ -303,8 +303,6 @@ describe("Condition", () => {
 
       assertEquals(recreatedOp.getOperation(), UTXOOperationType.SPEND);
       assertEquals(recreatedOp.getUtxo().toString(), validUtxo.toString());
-
-      console.log("SPEND OP MLXDR:", mlxdr);
     });
 
     it("should convert to and from MLXDR correctly for signed operations", async () => {
