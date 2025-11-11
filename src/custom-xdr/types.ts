@@ -1,22 +1,21 @@
-/**
- *
- * Module for converting conditions to custom Moonlight XDR format.
- *
- * All custom XDR encoded for Moonlight are prefixed by 'ML' to distinguish them from standard Stellar XDR.
- *
- * The first byte indicates the object type:
- * - 0x01: Condition
- * - 0x02: Operation
- * - 0x03: TransactionBundle
- * - 0x30 to 0xb0: Reserved for future use
- */
-
 import { Buffer } from "buffer";
 
 export enum MLXDRTypeByte {
-  Condition = 0x01,
-  Operation = 0x02,
-  TransactionBundle = 0x03,
+  CreateCondition = 0x01,
+  DepositCondition = 0x02,
+  WithdrawCondition = 0x03,
+  CreateOperation = 0x04,
+  SpendOperation = 0x05,
+  DepositOperation = 0x06,
+  WithdrawOperation = 0x07,
+
+  TransactionBundle = 0x08,
 }
 
-export const MLXDRPrefix = Buffer.from([0x30, 0xb0]);
+export const MLXDRPrefix: Buffer = Buffer.from([0x30, 0xb0]);
+
+export const MLXDRConditionBytes = [
+  MLXDRTypeByte.CreateCondition,
+  MLXDRTypeByte.DepositCondition,
+  MLXDRTypeByte.WithdrawCondition,
+];

@@ -1,15 +1,8 @@
-import {
-  type Asset,
-  authorizeEntry,
-  type Keypair,
-  Operation,
-  xdr,
-} from "@stellar/stellar-sdk";
+import { type Keypair, Operation, xdr } from "@stellar/stellar-sdk";
 import { Buffer } from "buffer";
 
 import { generateNonce } from "../utils/common/index.ts";
 
-import { buildAuthPayloadHash } from "../utils/auth/build-auth-payload.ts";
 import type {
   IUTXOKeypairBase,
   UTXOPublicKey,

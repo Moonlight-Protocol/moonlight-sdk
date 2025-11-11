@@ -38,9 +38,7 @@ export interface BaseOperation {
   clearConditions(): this;
   toXDR(): string;
   toScVal(): xdr.ScVal;
-  // fromScVal(scVal: xdr.ScVal): this;
-  // fromMLXDR(mlxdrString: string): this;
-  // toMLXDR(): string;
+  toMLXDR(): string;
 }
 
 export interface CreateOperation extends BaseOperation {
@@ -63,6 +61,7 @@ export interface DepositOperation extends BaseOperation {
   ): Promise<this>;
   getEd25519Signature(): xdr.SorobanAuthorizationEntry;
   isSignedByEd25519(): boolean;
+  appendEd25519Signature(signature: xdr.SorobanAuthorizationEntry): this;
 }
 
 export interface WithdrawOperation extends BaseOperation {
@@ -81,6 +80,7 @@ export interface SpendOperation extends BaseOperation {
     channelId: ContractId,
     signatureExpirationLedger: number
   ): Promise<this>;
+  appendUTXOSignature(signature: OperationSignature): this;
 }
 
 export type MoonlightOperation =

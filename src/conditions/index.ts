@@ -1,6 +1,5 @@
 import { StrKey, type Ed25519PublicKey } from "@colibri/core";
 import {
-  Address,
   nativeToScVal,
   scValToBigInt,
   scValToNative,
@@ -167,6 +166,78 @@ export class Condition implements BaseCondition {
     }) as WithdrawCondition;
   }
 
+  /**
+   *   Creates a Condition instance from a base64-encoded XDR string.
+   *
+   * @param xdrString  - The base64-encoded XDR representation of the condition
+   * @returns A Condition instance (CreateCondition, DepositCondition, or WithdrawCondition)
+   */
+  public static fromXDR(
+    xdrString: string
+  ): CreateCondition | DepositCondition | WithdrawCondition {
+    const scVal = xdr.ScVal.fromXDR(xdrString, "base64");
+    return Condition.fromScVal(scVal);
+  }
+
+  /**
+   *  Creates a Condition instance from a Moonlight XDR string.
+   *
+   * @param mlxdrString  - The Moonlight XDR representation of the condition
+   * @returns A Condition instance (CreateCondition, DepositCondition, or WithdrawCondition)
+   */
+  public static fromMLXDR(
+    mlxdrString: string
+  ): CreateCondition | DepositCondition | WithdrawCondition {
+    return MLXDR.toCondition(mlxdrString);
+  }
+
+  /**
+   *
+   * Creates a Condition instance from a Stellar ScVal representation.
+   * @param scVal - The Stellar ScVal representation of the condition.
+   * @returns A Condition instance (CreateCondition, DepositCondition, or WithdrawCondition)
+   */
+  public static fromScVal(
+    scVal: xdr.ScVal
+  ): CreateCondition | DepositCondition | WithdrawCondition {
+    if (scVal.switch().name !== xdr.ScValType.scvVec().name) {
+      throw new Error("Invalid ScVal type for Condition");
+    }
+
+    const vec = scVal.vec();
+
+    if (vec === null || vec.length !== 3) {
+      throw new Error("Invalid ScVal vector length for Condition");
+    }
+
+    const opScVal = vec[0];
+    const addressScVal = vec[1];
+    const amountScVal = vec[2];
+    const amount = scValToBigInt(amountScVal);
+
+    const opType = opScVal.sym().toString() as UTXOOperationType;
+
+    if (opType === UTXOOperationType.CREATE) {
+      const utxo: UTXOPublicKey = Uint8Array.from(addressScVal.bytes());
+      return Condition.create(utxo, amount);
+    }
+
+    if (opType === UTXOOperationType.DEPOSIT) {
+      const address = scValToNative(addressScVal) as Ed25519PublicKey;
+      return Condition.deposit(address, amount);
+    }
+
+    if (opType === UTXOOperationType.WITHDRAW) {
+      const address = scValToNative(addressScVal) as Ed25519PublicKey;
+
+      return Condition.withdraw(address, amount);
+    }
+
+    throw new Error(
+      `Unsupported operation type for Condition.fromScVal: ${opType}`
+    );
+  }
+
   //==========================================
   // Meta Requirement Methods
   //==========================================
@@ -300,47 +371,6 @@ export class Condition implements BaseCondition {
     return conditionScVal;
   }
 
-  public static fromScVal(
-    scVal: xdr.ScVal
-  ): CreateCondition | DepositCondition | WithdrawCondition {
-    if (scVal.switch().name !== xdr.ScValType.scvVec().name) {
-      throw new Error("Invalid ScVal type for Condition");
-    }
-
-    const vec = scVal.vec();
-
-    if (vec === null || vec.length !== 3) {
-      throw new Error("Invalid ScVal vector length for Condition");
-    }
-
-    const opScVal = vec[0];
-    const addressScVal = vec[1];
-    const amountScVal = vec[2];
-    const amount = scValToBigInt(amountScVal);
-
-    const opType = opScVal.sym().toString() as UTXOOperationType;
-
-    if (opType === UTXOOperationType.CREATE) {
-      const utxo: UTXOPublicKey = Uint8Array.from(addressScVal.bytes());
-      return Condition.create(utxo, amount);
-    }
-
-    if (opType === UTXOOperationType.DEPOSIT) {
-      const address = scValToNative(addressScVal) as Ed25519PublicKey;
-      return Condition.deposit(address, amount);
-    }
-
-    if (opType === UTXOOperationType.WITHDRAW) {
-      const address = scValToNative(addressScVal) as Ed25519PublicKey;
-
-      return Condition.withdraw(address, amount);
-    }
-
-    throw new Error(
-      `Unsupported operation type for Condition.fromScVal: ${opType}`
-    );
-  }
-
   /**
    * Converts this condition to a custom Moonlight XDR format.
    *
@@ -365,19 +395,11 @@ export class Condition implements BaseCondition {
     return this.toScVal().toXDR("base64");
   }
 
-  public static fromXDR(
-    xdrString: string
-  ): CreateCondition | DepositCondition | WithdrawCondition {
-    const scVal = xdr.ScVal.fromXDR(xdrString, "base64");
-    return Condition.fromScVal(scVal);
-  }
-
-  public static fromMLXDR(
-    mlxdrString: string
-  ): CreateCondition | DepositCondition | WithdrawCondition {
-    return MLXDR.toCondition(mlxdrString);
-  }
-
+  /**
+   *
+   * Converts this condition to Moonlight's custom MLXDR format.
+   * @returns The condition as a Moonlight XDR string
+   */
   public toMLXDR(): string {
     return MLXDR.fromCondition(
       this as CreateCondition | DepositCondition | WithdrawCondition

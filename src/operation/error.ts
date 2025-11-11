@@ -1,3 +1,4 @@
+import type { Ed25519PublicKey } from "@colibri/core";
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 import { MoonlightError } from "../error/index.ts";
 
@@ -30,6 +31,12 @@ export enum Code {
   OP_HAS_NO_CONDITIONS = "OPR_011",
   SIGNER_IS_NOT_DEPOSITOR = "OPR_012",
   OP_ALREADY_SIGNED = "OPR_013",
+  INVALID_SCVAL_TYPE_FOR_OPERATION = "OPR_014",
+  INVALID_SCVAL_VEC_FOR_OPERATION = "OPR_015",
+
+  INVALID_SCVAL_VEC_LENGTH_FOR_OPERATION = "OPR_016",
+  INVALID_SCVAL_VEC_FOR_CONDITIONS = "OPR_017",
+  INVALID_SCVAL_VEC_FOR_CONDITION = "OPR_018",
 }
 
 export abstract class OperationError extends MoonlightError<Code, Meta> {
@@ -103,7 +110,7 @@ export class UNSUPPORTED_OP_TYPE_FOR_SCVAL_CONVERSION extends OperationError {
     super({
       code: Code.UNSUPPORTED_OP_TYPE_FOR_SCVAL_CONVERSION,
       message: `Unsupported operation type for SCVal conversion: ${opType}`,
-      details: `The operation type ${opType} is not supported for conversion to SCVal. Only DEPOSIT and WITHDRAW types are supported.`,
+      details: `The operation type ${opType} is not supported for SCVal conversion. Only DEPOSIT, WITHDRAW, CREATE and SPEND types are supported.`,
       data: { opType },
     });
   }
@@ -196,6 +203,61 @@ export class OP_ALREADY_SIGNED extends OperationError {
   }
 }
 
+export class INVALID_SCVAL_TYPE_FOR_OPERATION extends OperationError {
+  constructor(expectedType: string, actualType: string) {
+    super({
+      code: Code.INVALID_SCVAL_TYPE_FOR_OPERATION,
+      message: `Invalid SCVal type for operation conversion.`,
+      details: `The SCVal type ${actualType} is not valid for conversion to the expected operation type ${expectedType}.`,
+      data: { expectedType, actualType },
+    });
+  }
+}
+
+export class INVALID_SCVAL_VEC_FOR_OPERATION extends OperationError {
+  constructor() {
+    super({
+      code: Code.INVALID_SCVAL_VEC_FOR_OPERATION,
+      message: `Invalid SCVal vector type for operation conversion.`,
+      details: `The SCVal type is null is not a vector type required for operation conversion.`,
+      data: {},
+    });
+  }
+}
+
+export class INVALID_SCVAL_VEC_LENGTH_FOR_OPERATION extends OperationError {
+  constructor(opType: string, expectedLength: number, actualLength: number) {
+    super({
+      code: Code.INVALID_SCVAL_VEC_LENGTH_FOR_OPERATION,
+      message: `Invalid SCVal vector length for operation type ${opType}.`,
+      details: `The SCVal vector length ${actualLength} does not match the expected length ${expectedLength} for operation type ${opType}.`,
+      data: { opType, expectedLength, actualLength },
+    });
+  }
+}
+
+export class INVALID_SCVAL_VEC_FOR_CONDITIONS extends OperationError {
+  constructor(utxoOrPk: UTXOPublicKey | Ed25519PublicKey) {
+    super({
+      code: Code.INVALID_SCVAL_VEC_FOR_CONDITIONS,
+      message: `Invalid SCVal vector for conditions in op with address ${utxoOrPk}.`,
+      details: `The SCVal vector for conditions in op with address ${utxoOrPk} is not valid.`,
+      data: { utxoOrPk },
+    });
+  }
+}
+
+export class INVALID_SCVAL_VEC_FOR_CONDITION extends OperationError {
+  constructor(utxoOrPk: UTXOPublicKey | Ed25519PublicKey, type: string) {
+    super({
+      code: Code.INVALID_SCVAL_VEC_FOR_CONDITION,
+      message: `Invalid SCVal vector for condition in op with address ${utxoOrPk}.`,
+      details: `The SCVal vector for a condition in op with address ${utxoOrPk} is not valid. A type of ${type} was provided instead of an ScVec.`,
+      data: { utxoOrPk, type },
+    });
+  }
+}
+
 export const OPR_ERRORS = {
   [Code.AMOUNT_TOO_LOW]: AMOUNT_TOO_LOW,
   [Code.INVALID_ED25519_PK]: INVALID_ED25519_PK,
@@ -211,4 +273,9 @@ export const OPR_ERRORS = {
   [Code.OP_HAS_NO_CONDITIONS]: OP_HAS_NO_CONDITIONS,
   [Code.SIGNER_IS_NOT_DEPOSITOR]: SIGNER_IS_NOT_DEPOSITOR,
   [Code.OP_ALREADY_SIGNED]: OP_ALREADY_SIGNED,
+  [Code.INVALID_SCVAL_TYPE_FOR_OPERATION]: INVALID_SCVAL_TYPE_FOR_OPERATION,
+  [Code.INVALID_SCVAL_VEC_FOR_OPERATION]: INVALID_SCVAL_VEC_FOR_OPERATION,
+  [Code.INVALID_SCVAL_VEC_LENGTH_FOR_OPERATION]:
+    INVALID_SCVAL_VEC_LENGTH_FOR_OPERATION,
+  [Code.INVALID_SCVAL_VEC_FOR_CONDITION]: INVALID_SCVAL_VEC_FOR_CONDITION,
 };

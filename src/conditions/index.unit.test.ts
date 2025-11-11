@@ -6,7 +6,7 @@ import { Condition } from "./index.ts";
 import { generateP256KeyPair } from "../utils/secp256r1/generateP256KeyPair.ts";
 import { UTXOOperationType } from "../operation/types.ts";
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
-import {
+import type {
   CreateCondition,
   DepositCondition,
   WithdrawCondition,
