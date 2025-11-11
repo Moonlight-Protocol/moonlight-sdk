@@ -39,23 +39,9 @@ export abstract class UTXOKeypairError<
 }
 
 export enum Code {
-  UNEXPECTED_ERROR = "UKP_000",
+  UNEXPECTED_ERROR = "UKP_000", // Reserved but unused for now
   DERIVATOR_NOT_CONFIGURED = "UKP_001",
 }
-
-// Currently unused, reserving
-//
-// export class UNEXPECTED_ERROR extends ContractError<Code> {
-//   constructor(cause: Error) {
-//     super({
-//       code: Code.UNEXPECTED_ERROR,
-//       message: "An unexpected error occurred in the UTXOKeypair module!",
-//       details: "See the 'cause' for more details",
-//       cause,
-//       data: {},
-//     });
-//   }
-// }
 
 export class DERIVATOR_NOT_CONFIGURED extends UTXOKeypairError<Code> {
   constructor(derivator: BaseDerivator<string, string, string>) {
@@ -77,6 +63,5 @@ export class DERIVATOR_NOT_CONFIGURED extends UTXOKeypairError<Code> {
 }
 
 export const UKP_ERRORS = {
-  //    [Code.UNEXPECTED_ERROR]: UNEXPECTED_ERROR,
   [Code.DERIVATOR_NOT_CONFIGURED]: DERIVATOR_NOT_CONFIGURED,
 };
