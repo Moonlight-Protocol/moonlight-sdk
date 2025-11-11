@@ -11,10 +11,7 @@ export interface BaseCondition {
   isDeposit(): this is DepositCondition;
   isWithdraw(): this is WithdrawCondition;
   toXDR(): string;
-  // fromXDR(xdrString: string): this;
   toScVal(): xdr.ScVal;
-  // fromScVal(scVal: xdr.ScVal): this;
-  // fromMLXDR(mlxdrString: string): this;
   toMLXDR(): string;
 }
 
