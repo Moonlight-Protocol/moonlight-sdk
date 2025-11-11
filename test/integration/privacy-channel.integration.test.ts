@@ -236,7 +236,9 @@ describe(
           network: networkConfig.networkPassphrase,
           channelId: channelId,
           authId: authId,
-          asset: Asset.native(),
+          assetId: Asset.native().contractId(
+            networkConfig.networkPassphrase
+          ) as ContractId,
         });
 
         const createOpA = op.create(utxoAKeypair.publicKey, 250n);

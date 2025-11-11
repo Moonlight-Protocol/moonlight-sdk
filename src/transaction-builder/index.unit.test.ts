@@ -1,4 +1,9 @@
-import { assertEquals, assertExists, assertThrows } from "@std/assert";
+import {
+  assertEquals,
+  assertExists,
+  assertRejects,
+  assertThrows,
+} from "@std/assert";
 import { beforeAll, describe, it } from "@std/testing/bdd";
 import { LocalSigner } from "@colibri/core";
 import { Asset, Networks } from "@stellar/stellar-sdk";
@@ -12,6 +17,8 @@ import { Buffer } from "buffer";
 import { generateNonce } from "../utils/common/index.ts";
 import { UTXOKeypairBase } from "../core/utxo-keypair-base/index.ts";
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
+import * as OPR_ERR from "../operation/error.ts";
+import * as TBU_ERR from "./error.ts";
 
 describe("MoonlightTransactionBuilder", () => {
   let validPublicKey: Ed25519PublicKey;
@@ -19,7 +26,7 @@ describe("MoonlightTransactionBuilder", () => {
   let validAmount: bigint;
   let channelId: ContractId;
   let authId: ContractId;
-  let asset: Asset;
+  let assetId: ContractId;
   let network: string;
   let builder: MoonlightTransactionBuilder;
 
@@ -32,13 +39,13 @@ describe("MoonlightTransactionBuilder", () => {
       "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC" as ContractId;
     authId =
       "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA" as ContractId;
-    asset = Asset.native();
     network = Networks.TESTNET;
+    assetId = Asset.native().contractId(network) as ContractId;
 
     builder = new MoonlightTransactionBuilder({
       channelId,
       authId,
-      asset,
+      assetId,
       network,
     });
   });
@@ -48,21 +55,21 @@ describe("MoonlightTransactionBuilder", () => {
       const txBuilder = new MoonlightTransactionBuilder({
         channelId,
         authId,
-        asset,
+        assetId,
         network,
       });
 
       assertExists(txBuilder);
       assertEquals(txBuilder.getChannelId(), channelId);
       assertEquals(txBuilder.getAuthId(), authId);
-      assertEquals(txBuilder.getAsset(), asset);
+      assertEquals(txBuilder.getAssetId(), assetId);
     });
 
     it("should initialize with empty operation arrays", () => {
       const txBuilder = new MoonlightTransactionBuilder({
         channelId,
         authId,
-        asset,
+        assetId,
         network,
       });
 
@@ -83,7 +90,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -104,7 +111,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -126,8 +133,9 @@ describe("MoonlightTransactionBuilder", () => {
     });
 
     describe("Signature Management", () => {
-      it("should add inner signatures for UTXO operations", async () => {
-        const utxo = (await generateP256KeyPair()).publicKey as UTXOPublicKey;
+      it("should add signed UTXO operations", async () => {
+        const utxoKp = new UTXOKeypairBase(await generateP256KeyPair());
+        const utxo = utxoKp.publicKey as UTXOPublicKey;
         const condition = Condition.create(utxo, validAmount);
         const spendOperation = Operation.spend(utxo);
         spendOperation.addCondition(condition);
@@ -135,18 +143,16 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
+
+        const expirationLedger = 1000000;
+        await spendOperation.signWithUTXO(utxoKp, channelId, expirationLedger);
 
         // Add spend operation first
         // deno-lint-ignore no-explicit-any
         (testBuilder as any).addSpend(spendOperation);
-
-        const signature = Buffer.from("test_signature");
-        const expirationLedger = 1000000;
-
-        testBuilder.addInnerSignature(utxo, signature, expirationLedger);
 
         // deno-lint-ignore no-explicit-any
         const signatures = (testBuilder as any).innerSignatures;
@@ -177,7 +183,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -203,7 +209,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -228,10 +234,16 @@ describe("MoonlightTransactionBuilder", () => {
         const utxo = utxoKeys.publicKey as UTXOPublicKey;
         const spendOperation = Operation.spend(utxo);
 
+        spendOperation.addCondition(
+          Condition.create(
+            (await generateP256KeyPair()).publicKey as UTXOPublicKey,
+            1n
+          )
+        );
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -260,7 +272,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -283,9 +295,9 @@ describe("MoonlightTransactionBuilder", () => {
         assertEquals(extSigs.has(pubKey), true);
       });
 
-      it("should add external signed entry", () => {
-        const pubKey =
-          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
+      it("should add external signed entry", async () => {
+        const depositorKeys = LocalSigner.generateRandom();
+        const pubKey = depositorKeys.publicKey() as Ed25519PublicKey;
         const condition = Condition.deposit(pubKey, validAmount);
         const operation = Operation.deposit(pubKey, validAmount);
         operation.addCondition(condition);
@@ -293,22 +305,23 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
-        // deno-lint-ignore no-explicit-any
-        (testBuilder as any).addDeposit(operation);
-
         const nonce = generateNonce();
         const signatureExpirationLedger = 1000000;
-        const authEntry = testBuilder.getExtAuthEntry(
-          pubKey,
-          nonce,
-          signatureExpirationLedger
-        );
 
-        testBuilder.addExtSignedEntry(pubKey, authEntry);
+        await operation.signWithEd25519(
+          depositorKeys,
+          signatureExpirationLedger,
+          channelId,
+          assetId,
+          network,
+          nonce
+        );
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addDeposit(operation);
 
         // deno-lint-ignore no-explicit-any
         const extSigs = (testBuilder as any).extSignatures;
@@ -338,7 +351,7 @@ describe("MoonlightTransactionBuilder", () => {
         const builderWithOps = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -378,37 +391,6 @@ describe("MoonlightTransactionBuilder", () => {
         assertEquals(hash.length > 0, true);
       });
 
-      it("should generate external auth entry for deposit operation", () => {
-        const pubKey =
-          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
-        const condition = Condition.deposit(pubKey, validAmount);
-        const operation = Operation.deposit(pubKey, validAmount);
-        operation.addCondition(condition);
-
-        const testBuilder = new MoonlightTransactionBuilder({
-          channelId,
-          authId,
-          asset,
-          network,
-        });
-
-        // Add deposit operation
-        // deno-lint-ignore no-explicit-any
-        (testBuilder as any).addDeposit(operation);
-
-        const nonce = generateNonce();
-        const signatureExpirationLedger = 1000000;
-
-        const authEntry = testBuilder.getExtAuthEntry(
-          pubKey,
-          nonce,
-          signatureExpirationLedger
-        );
-
-        assertExists(authEntry);
-        assertEquals(typeof authEntry.toXDR, "function");
-      });
-
       it("should get auth requirement args for operation with spend operations", async () => {
         const utxoKeys = await generateP256KeyPair();
         const utxo = utxoKeys.publicKey as UTXOPublicKey;
@@ -419,7 +401,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -443,7 +425,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -461,7 +443,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -487,7 +469,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -528,7 +510,7 @@ describe("MoonlightTransactionBuilder", () => {
         const builderWithSigs = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -559,7 +541,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -594,7 +576,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -626,7 +608,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -634,8 +616,7 @@ describe("MoonlightTransactionBuilder", () => {
 
         assertThrows(
           () => testBuilder.addOperation(operation2),
-          Error,
-          "Create operation for this UTXO already exists"
+          TBU_ERR.DUPLICATE_CREATE_OP
         );
       });
 
@@ -651,7 +632,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -661,8 +642,7 @@ describe("MoonlightTransactionBuilder", () => {
         assertThrows(
           // deno-lint-ignore no-explicit-any
           () => (testBuilder as any).addDeposit(operation2),
-          Error,
-          "Deposit operation for this public key already exists"
+          TBU_ERR.DUPLICATE_DEPOSIT_OP
         );
       });
 
@@ -678,7 +658,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -688,18 +668,16 @@ describe("MoonlightTransactionBuilder", () => {
         assertThrows(
           // deno-lint-ignore no-explicit-any
           () => (testBuilder as any).addWithdraw(operation2),
-          Error,
-          "Withdraw operation for this public key already exists"
+          TBU_ERR.DUPLICATE_WITHDRAW_OP
         );
       });
 
       it("should throw error for zero amount in CREATE operation", async () => {
         const utxo = (await generateP256KeyPair()).publicKey as UTXOPublicKey;
 
-        assertThrows(
-          () => Operation.create(utxo, 0n),
-          Error,
-          "Amount must be greater than zero"
+        assertRejects(
+          async () => await Operation.create(utxo, 0n),
+          OPR_ERR.AMOUNT_TOO_LOW
         );
       });
 
@@ -709,8 +687,7 @@ describe("MoonlightTransactionBuilder", () => {
 
         assertThrows(
           () => Operation.deposit(pubKey, -100n),
-          Error,
-          "Amount must be greater than zero"
+          OPR_ERR.AMOUNT_TOO_LOW
         );
       });
 
@@ -719,36 +696,30 @@ describe("MoonlightTransactionBuilder", () => {
           LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
 
         assertThrows(
-          () => Operation.withdraw(pubKey, -100n),
-          Error,
-          "Amount must be greater than zero"
+          () => Operation.withdraw(pubKey, -10n),
+          OPR_ERR.AMOUNT_TOO_LOW
         );
       });
     });
 
     describe("Signature Validation", () => {
       it("should throw error when adding inner signature without spend operation", async () => {
-        const signature = Buffer.from("test_signature");
         const expirationLedger = 1000000;
-        const nonExistentUtxo = (await generateP256KeyPair())
-          .publicKey as UTXOPublicKey;
+        const nonExistentUtxo = new UTXOKeypairBase(
+          await generateP256KeyPair()
+        );
 
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
-        assertThrows(
+        await assertRejects(
           () =>
-            testBuilder.addInnerSignature(
-              nonExistentUtxo,
-              signature,
-              expirationLedger
-            ),
-          Error,
-          "No spend operation for this UTXO"
+            testBuilder.signWithSpendUtxo(nonExistentUtxo, expirationLedger),
+          TBU_ERR.NO_SPEND_OPS
         );
       });
 
@@ -761,14 +732,13 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
         assertThrows(
           () => testBuilder.addExtSignedEntry(nonExistentKey, mockAuthEntry),
-          Error,
-          "No deposit or withdraw operation for this public key"
+          TBU_ERR.NO_EXT_OPS
         );
       });
 
@@ -776,14 +746,13 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
         assertThrows(
           () => testBuilder.signaturesXDR(),
-          Error,
-          "No Provider signatures added"
+          TBU_ERR.MISSING_PROVIDER_SIGNATURE
         );
       });
 
@@ -791,7 +760,7 @@ describe("MoonlightTransactionBuilder", () => {
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
@@ -804,28 +773,26 @@ describe("MoonlightTransactionBuilder", () => {
     });
 
     describe("External Auth Entry Validation", () => {
-      it("should throw error when getting external auth entry for non-existent deposit", () => {
-        const nonExistentKey =
-          LocalSigner.generateRandom().publicKey() as Ed25519PublicKey;
+      it("should throw error when getting external auth entry for non-existent deposit", async () => {
+        const nonExistentKey = LocalSigner.generateRandom();
         const nonce = generateNonce();
         const signatureExpirationLedger = 1000000;
 
         const testBuilder = new MoonlightTransactionBuilder({
           channelId,
           authId,
-          asset,
+          assetId,
           network,
         });
 
-        assertThrows(
-          () =>
-            testBuilder.getExtAuthEntry(
+        await assertRejects(
+          async () =>
+            await testBuilder.signExtWithEd25519(
               nonExistentKey,
-              nonce,
-              signatureExpirationLedger
+              signatureExpirationLedger,
+              nonce
             ),
-          Error,
-          "No deposit operation for this address"
+          TBU_ERR.NO_DEPOSIT_OPS
         );
       });
     });
@@ -839,8 +806,7 @@ describe("MoonlightTransactionBuilder", () => {
         assertThrows(
           // deno-lint-ignore no-explicit-any
           () => (emptyBuilder as any).require("_channelId"),
-          Error,
-          "Property _channelId is not set in the Transaction Builder instance"
+          TBU_ERR.PROPERTY_NOT_SET
         );
       });
     });

@@ -289,7 +289,9 @@ describe(
           network: networkConfig.networkPassphrase,
           channelId: channelId,
           authId: authId,
-          asset: Asset.native(),
+          assetId: Asset.native().contractId(
+            networkConfig.networkPassphrase
+          ) as ContractId,
         });
 
         const createOp = op.create(testUtxo.publicKey, depositAmount);
@@ -410,7 +412,9 @@ describe(
             network: networkConfig.networkPassphrase,
             channelId: channelId,
             authId: authId,
-            asset: Asset.native(),
+            assetId: Asset.native().contractId(
+              networkConfig.networkPassphrase
+            ) as ContractId,
           });
 
           const createOp = op.create(testUtxo.publicKey, amount);
@@ -510,7 +514,9 @@ describe(
           network: networkConfig.networkPassphrase,
           channelId: channelId,
           authId: authId,
-          asset: Asset.native(),
+          assetId: Asset.native().contractId(
+            networkConfig.networkPassphrase
+          ) as ContractId,
         });
 
         const createOp = op.create(testUtxo.publicKey, depositAmount);
@@ -571,7 +577,9 @@ describe(
           network: networkConfig.networkPassphrase,
           channelId: channelId,
           authId: authId,
-          asset: Asset.native(),
+          assetId: Asset.native().contractId(
+            networkConfig.networkPassphrase
+          ) as ContractId,
         });
 
         const withdrawOp = op.withdraw(user.address(), depositAmount);
@@ -677,7 +685,9 @@ describe(
             network: networkConfig.networkPassphrase,
             channelId: channelId,
             authId: authId,
-            asset: Asset.native(),
+            assetId: Asset.native().contractId(
+              networkConfig.networkPassphrase
+            ) as ContractId,
           });
 
           const createOp = op.create(testUtxo.publicKey, amount);
@@ -795,7 +805,9 @@ describe(
             network: networkConfig.networkPassphrase,
             channelId: channelId,
             authId: authId,
-            asset: Asset.native(),
+            assetId: Asset.native().contractId(
+              networkConfig.networkPassphrase
+            ) as ContractId,
           });
 
           const createOp = op.create(testUtxo.publicKey, amount);
@@ -866,7 +878,9 @@ describe(
             network: networkConfig.networkPassphrase,
             channelId: channelId,
             authId: authId,
-            asset: Asset.native(),
+            assetId: Asset.native().contractId(
+              networkConfig.networkPassphrase
+            ) as ContractId,
           });
 
           const withdrawOp = op.withdraw(user.address(), amount);
@@ -941,7 +955,9 @@ describe(
           network: networkConfig.networkPassphrase,
           channelId: channelId,
           authId: authId,
-          asset: Asset.native(),
+          assetId: Asset.native().contractId(
+            networkConfig.networkPassphrase
+          ) as ContractId,
         });
 
         const createOp = op.create(freeUtxo.publicKey, newDepositAmount);

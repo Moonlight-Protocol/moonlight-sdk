@@ -1,13 +1,21 @@
-import type { Ed25519PublicKey } from "@colibri/core";
+import type {
+  ContractId,
+  Ed25519PublicKey,
+  TransactionSigner,
+} from "@colibri/core";
 
-import type { xdr } from "@stellar/stellar-sdk";
+import type { Keypair, xdr } from "@stellar/stellar-sdk";
 import type {
   CreateCondition,
   DepositCondition,
   WithdrawCondition,
 } from "../conditions/types.ts";
 import type { Condition } from "../conditions/types.ts";
-import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
+import type {
+  IUTXOKeypairBase,
+  UTXOPublicKey,
+} from "../core/utxo-keypair-base/types.ts";
+import type { Buffer } from "buffer";
 
 export enum UTXOOperationType {
   CREATE = "Create",
@@ -30,6 +38,7 @@ export interface BaseOperation {
   clearConditions(): this;
   toXDR(): string;
   toScVal(): xdr.ScVal;
+  toMLXDR(): string;
 }
 
 export interface CreateOperation extends BaseOperation {
@@ -42,6 +51,17 @@ export interface DepositOperation extends BaseOperation {
   getOperation(): UTXOOperationType.DEPOSIT;
   getPublicKey(): Ed25519PublicKey;
   toCondition(): DepositCondition;
+  signWithEd25519(
+    depositorKeys: TransactionSigner | Keypair,
+    signatureExpirationLedger: number,
+    channelId: ContractId,
+    assetId: ContractId,
+    networkPassphrase: string,
+    nonce?: string
+  ): Promise<this>;
+  getEd25519Signature(): xdr.SorobanAuthorizationEntry;
+  isSignedByEd25519(): boolean;
+  appendEd25519Signature(signature: xdr.SorobanAuthorizationEntry): this;
 }
 
 export interface WithdrawOperation extends BaseOperation {
@@ -53,6 +73,14 @@ export interface WithdrawOperation extends BaseOperation {
 export interface SpendOperation extends BaseOperation {
   getOperation(): UTXOOperationType.SPEND;
   getUtxo(): UTXOPublicKey;
+  isSignedByUTXO(): boolean;
+  getUTXOSignature(): OperationSignature;
+  signWithUTXO(
+    utxo: IUTXOKeypairBase,
+    channelId: ContractId,
+    signatureExpirationLedger: number
+  ): Promise<this>;
+  appendUTXOSignature(signature: OperationSignature): this;
 }
 
 export type MoonlightOperation =
@@ -60,3 +88,5 @@ export type MoonlightOperation =
   | DepositOperation
   | WithdrawOperation
   | SpendOperation;
+
+export type OperationSignature = { sig: Buffer; exp: number };

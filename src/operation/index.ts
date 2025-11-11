@@ -1,18 +1,41 @@
-import { type Ed25519PublicKey, StrKey } from "@colibri/core";
+import {
+  type ContractId,
+  type Ed25519PublicKey,
+  isTransactionSigner,
+  StrKey,
+  type TransactionSigner,
+} from "@colibri/core";
 import type { Condition as ConditionType } from "../conditions/types.ts";
 import { UTXOOperationType } from "./types.ts";
 import type {
   BaseOperation,
   CreateOperation,
   DepositOperation,
+  OperationSignature,
   SpendOperation,
   WithdrawOperation,
 } from "./types.ts";
 
 import { Condition } from "../conditions/index.ts";
-import { nativeToScVal, xdr } from "@stellar/stellar-sdk";
+import {
+  authorizeEntry,
+  type Keypair,
+  nativeToScVal,
+  scValToBigInt,
+  scValToNative,
+  xdr,
+} from "@stellar/stellar-sdk";
 import { Buffer } from "node:buffer";
-import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
+import type {
+  IUTXOKeypairBase,
+  UTXOPublicKey,
+} from "../core/utxo-keypair-base/types.ts";
+import * as E from "./error.ts";
+import { assert } from "../utils/assert/assert.ts";
+import { buildAuthPayloadHash } from "../utils/auth/build-auth-payload.ts";
+import { generateNonce } from "../utils/common/index.ts";
+import { buildDepositAuthEntry } from "../utils/auth/deposit-auth-entry copy.ts";
+import { MLXDR } from "../custom-xdr/index.ts";
 
 export class MoonlightOperation implements BaseOperation {
   private _op: UTXOOperationType;
@@ -20,6 +43,9 @@ export class MoonlightOperation implements BaseOperation {
   private _publicKey?: Ed25519PublicKey;
   private _utxo?: UTXOPublicKey;
   private _conditions?: ConditionType[];
+
+  private _utxoSignature?: OperationSignature;
+  private _ed25519Signature?: xdr.SorobanAuthorizationEntry;
 
   private constructor({
     op,
@@ -32,10 +58,6 @@ export class MoonlightOperation implements BaseOperation {
     publicKey?: Ed25519PublicKey;
     utxo?: UTXOPublicKey;
   }) {
-    if (amount !== undefined && amount <= 0n) {
-      throw new Error("Amount must be greater than zero");
-    }
-
     // Business rule: CREATE operations cannot have conditions.
     // This is because conditions are only applicable to DEPOSIT, SPEND, and WITHDRAW operations.
     // Attempting to add conditions to CREATE would violate the intended operation semantics.
@@ -48,6 +70,8 @@ export class MoonlightOperation implements BaseOperation {
   }
 
   static create(utxo: UTXOPublicKey, amount: bigint): CreateOperation {
+    assert(amount > 0n, new E.AMOUNT_TOO_LOW(amount));
+
     return new MoonlightOperation({
       op: UTXOOperationType.CREATE,
       utxo,
@@ -59,9 +83,12 @@ export class MoonlightOperation implements BaseOperation {
     publicKey: Ed25519PublicKey,
     amount: bigint
   ): DepositOperation {
-    if (!StrKey.isValidEd25519PublicKey(publicKey)) {
-      throw new Error("Invalid Ed25519 public key");
-    }
+    assert(amount > 0n, new E.AMOUNT_TOO_LOW(amount));
+
+    assert(
+      StrKey.isValidEd25519PublicKey(publicKey),
+      new E.INVALID_ED25519_PK(publicKey)
+    );
 
     return new MoonlightOperation({
       op: UTXOOperationType.DEPOSIT,
@@ -74,9 +101,13 @@ export class MoonlightOperation implements BaseOperation {
     publicKey: Ed25519PublicKey,
     amount: bigint
   ): WithdrawOperation {
-    if (!StrKey.isValidEd25519PublicKey(publicKey)) {
-      throw new Error("Invalid Ed25519 public key.");
-    }
+    assert(amount > 0n, new E.AMOUNT_TOO_LOW(amount));
+
+    assert(
+      StrKey.isValidEd25519PublicKey(publicKey),
+      new E.INVALID_ED25519_PK(publicKey)
+    );
+
     return new MoonlightOperation({
       op: UTXOOperationType.WITHDRAW,
       publicKey,
@@ -89,6 +120,142 @@ export class MoonlightOperation implements BaseOperation {
       op: UTXOOperationType.SPEND,
       utxo,
     }) as SpendOperation;
+  }
+
+  static fromXDR(
+    xdrString: string,
+    type: UTXOOperationType
+  ): CreateOperation | DepositOperation | WithdrawOperation | SpendOperation {
+    const scVal = xdr.ScVal.fromXDR(xdrString, "base64");
+
+    if (type === UTXOOperationType.SPEND) {
+      return this.fromScVal(scVal, UTXOOperationType.SPEND);
+    }
+    if (type === UTXOOperationType.DEPOSIT) {
+      return this.fromScVal(scVal, UTXOOperationType.DEPOSIT);
+    }
+    if (type === UTXOOperationType.WITHDRAW) {
+      return this.fromScVal(scVal, UTXOOperationType.WITHDRAW);
+    }
+    if (type === UTXOOperationType.CREATE) {
+      return this.fromScVal(scVal, UTXOOperationType.CREATE);
+    }
+
+    throw new E.UNSUPPORTED_OP_TYPE_FOR_SCVAL_CONVERSION(type);
+  }
+
+  static fromScVal(
+    scVal: xdr.ScVal,
+    type: UTXOOperationType.CREATE
+  ): CreateOperation;
+  static fromScVal(
+    scVal: xdr.ScVal,
+    type: UTXOOperationType.DEPOSIT
+  ): DepositOperation;
+  static fromScVal(
+    scVal: xdr.ScVal,
+    type: UTXOOperationType.WITHDRAW
+  ): WithdrawOperation;
+  static fromScVal(
+    scVal: xdr.ScVal,
+    type: UTXOOperationType.SPEND
+  ): SpendOperation;
+  public static fromScVal(
+    scVal: xdr.ScVal,
+    type: UTXOOperationType
+  ): CreateOperation | DepositOperation | WithdrawOperation | SpendOperation {
+    assert(
+      scVal.switch().name === xdr.ScValType.scvVec().name,
+      new E.INVALID_SCVAL_TYPE_FOR_OPERATION(
+        xdr.ScValType.scvVec().name,
+        scVal.switch().name
+      )
+    );
+
+    const vec = scVal.vec();
+
+    assert(vec !== null, new E.INVALID_SCVAL_VEC_FOR_OPERATION());
+
+    if (type === UTXOOperationType.CREATE) {
+      assert(
+        vec.length === 2,
+        new E.INVALID_SCVAL_VEC_LENGTH_FOR_OPERATION(type, 2, vec.length)
+      );
+      const utxo: UTXOPublicKey = Uint8Array.from(vec[0].bytes());
+      const amount = scValToBigInt(vec[1]);
+      return this.create(utxo, amount);
+    }
+    if (type === UTXOOperationType.SPEND) {
+      assert(
+        vec.length === 2,
+        new E.INVALID_SCVAL_VEC_LENGTH_FOR_OPERATION(type, 2, vec.length)
+      );
+      const utxo: UTXOPublicKey = Uint8Array.from(vec[0].bytes());
+      const conditionsScVal = vec[1].vec();
+
+      assert(
+        conditionsScVal !== null,
+        new E.INVALID_SCVAL_VEC_FOR_CONDITIONS(utxo)
+      );
+
+      const conditions: ConditionType[] = conditionsScVal.map((cScVal) => {
+        assert(
+          cScVal.switch().name === xdr.ScValType.scvVec().name,
+          new E.INVALID_SCVAL_VEC_FOR_CONDITION(utxo, cScVal.switch().name)
+        );
+
+        return Condition.fromScVal(cScVal);
+      });
+      return this.spend(utxo).addConditions(conditions);
+    }
+    if (type === UTXOOperationType.DEPOSIT) {
+      assert(
+        vec.length === 3,
+        new E.INVALID_SCVAL_VEC_LENGTH_FOR_OPERATION(type, 3, vec.length)
+      );
+      const publicKey = scValToNative(vec[0]) as Ed25519PublicKey;
+      const amount = scValToBigInt(vec[1]);
+      const conditionsScVal = vec[2].vec();
+
+      assert(
+        conditionsScVal !== null,
+        new E.INVALID_SCVAL_VEC_FOR_CONDITIONS(publicKey)
+      );
+
+      const conditions: ConditionType[] = conditionsScVal.map((cScVal) => {
+        assert(
+          cScVal.switch().name === xdr.ScValType.scvVec().name,
+          new E.INVALID_SCVAL_VEC_FOR_CONDITION(publicKey, cScVal.switch().name)
+        );
+        return Condition.fromScVal(cScVal);
+      });
+      return this.deposit(publicKey, amount).addConditions(conditions);
+    }
+    if (type === UTXOOperationType.WITHDRAW) {
+      assert(
+        vec.length === 3,
+        new E.INVALID_SCVAL_VEC_LENGTH_FOR_OPERATION(type, 3, vec.length)
+      );
+      const publicKey = scValToNative(vec[0]) as Ed25519PublicKey;
+      const amount = scValToBigInt(vec[1]);
+      const conditionsScVal = vec[2].vec();
+
+      assert(
+        conditionsScVal !== null,
+        new E.INVALID_SCVAL_VEC_FOR_CONDITIONS(publicKey)
+      );
+
+      const conditions: ConditionType[] = conditionsScVal.map((cScVal) => {
+        assert(
+          cScVal.switch().name === xdr.ScValType.scvVec().name,
+          new E.INVALID_SCVAL_VEC_FOR_CONDITION(publicKey, cScVal.switch().name)
+        );
+        return Condition.fromScVal(cScVal);
+      });
+      return this.withdraw(publicKey, amount).addConditions(conditions);
+    }
+
+    throw new E.UNSUPPORTED_OP_TYPE_FOR_SCVAL_CONVERSION(type);
   }
 
   //==========================================
@@ -109,17 +276,28 @@ export class MoonlightOperation implements BaseOperation {
   private require(arg: "_publicKey"): Ed25519PublicKey;
   private require(arg: "_utxo"): UTXOPublicKey;
   private require(arg: "_conditions"): ConditionType[];
+  private require(arg: "_utxoSignature"): OperationSignature;
+  private require(arg: "_ed25519Signature"): xdr.SorobanAuthorizationEntry;
 
   private require(
-    arg: "_op" | "_amount" | "_publicKey" | "_utxo" | "_conditions"
+    arg:
+      | "_op"
+      | "_amount"
+      | "_publicKey"
+      | "_utxo"
+      | "_conditions"
+      | "_utxoSignature"
+      | "_ed25519Signature"
   ):
     | UTXOOperationType
     | bigint
     | Ed25519PublicKey
     | UTXOPublicKey
-    | ConditionType[] {
+    | ConditionType[]
+    | OperationSignature
+    | xdr.SorobanAuthorizationEntry {
     if (this[arg] !== undefined) return this[arg];
-    throw new Error(`Property ${arg} is not set in the Operation instance`);
+    throw new E.PROPERTY_NOT_SET(arg);
   }
 
   //==========================================
@@ -218,6 +396,57 @@ export class MoonlightOperation implements BaseOperation {
     return this.require("_utxo");
   }
 
+  /**
+   * Returns the UTXO signature for this operation.
+   * @returns The UTXO signature as an OperationSignature object
+   * @throws {Error} If the signature is not set
+   */
+  public getUTXOSignature(): OperationSignature {
+    return this.require("_utxoSignature");
+  }
+
+  /**
+   * Sets the UTXO signature for this operation.
+   * @param signature - The OperationSignature to set
+   */
+  private setUTXOSignature(signature: OperationSignature) {
+    this._utxoSignature = signature;
+  }
+
+  public appendUTXOSignature(signature: OperationSignature): this {
+    assert(this.isSignedByUTXO() === false, new E.OP_ALREADY_SIGNED("UTXO"));
+    this.setUTXOSignature(signature);
+    return this;
+  }
+
+  /**
+   *  Returns the Ed25519 signature for this operation.
+   * @returns The Ed25519 signature as a SorobanAuthorizationEntry
+   * @throws {Error} If the signature is not set
+   */
+  public getEd25519Signature(): xdr.SorobanAuthorizationEntry {
+    return this.require("_ed25519Signature");
+  }
+
+  /**
+   *  Sets the Ed25519 signature for this operation.
+   * @param signature
+   */
+  private setEd25519Signature(signature: xdr.SorobanAuthorizationEntry) {
+    this._ed25519Signature = signature;
+  }
+
+  public appendEd25519Signature(
+    signature: xdr.SorobanAuthorizationEntry
+  ): this {
+    assert(
+      this.isSignedByEd25519() === false,
+      new E.OP_ALREADY_SIGNED("Ed25519")
+    );
+    this.setEd25519Signature(signature);
+    return this;
+  }
+
   //==========================================
   // Meta Management Methods
   //==========================================
@@ -241,6 +470,106 @@ export class MoonlightOperation implements BaseOperation {
     return this;
   }
 
+  /**
+   * Signs the operation with a UTXO keypair.
+   * @param utxo The UTXO keypair to use for signing
+   * @param channelId The channel ID to include in the signature
+   * @param signatureExpirationLedger The ledger sequence number at which the signature expires
+   * @returns The signed operation
+   */
+  public async signWithUTXO(
+    utxo: IUTXOKeypairBase,
+    channelId: ContractId,
+    signatureExpirationLedger: number
+  ): Promise<this> {
+    assert(this.isSignedByUTXO() === false, new E.OP_ALREADY_SIGNED("UTXO"));
+
+    assert(
+      this.getOperation() === UTXOOperationType.SPEND,
+      new E.OP_IS_NOT_SIGNABLE(this.getOperation(), "UTXO")
+    );
+
+    const conditions = this.getConditions();
+
+    assert(conditions.length > 0, new E.OP_HAS_NO_CONDITIONS(this.getUtxo()));
+
+    const signedHash = await utxo.signPayload(
+      await buildAuthPayloadHash({
+        contractId: channelId,
+        conditions,
+        liveUntilLedger: signatureExpirationLedger,
+      })
+    );
+
+    this.appendUTXOSignature({
+      sig: Buffer.from(signedHash),
+      exp: signatureExpirationLedger,
+    });
+
+    return this;
+  }
+
+  public async signWithEd25519(
+    depositorKeys: TransactionSigner | Keypair,
+    signatureExpirationLedger: number,
+    channelId: ContractId,
+    assetId: ContractId,
+    networkPassphrase: string,
+    nonce?: string
+  ): Promise<this> {
+    assert(
+      this.isSignedByEd25519() === false,
+      new E.OP_ALREADY_SIGNED("Ed25519")
+    );
+
+    assert(
+      this.getOperation() === UTXOOperationType.DEPOSIT,
+      new E.OP_IS_NOT_SIGNABLE(this.getOperation(), "Ed25519")
+    );
+
+    assert(
+      depositorKeys.publicKey() === this.getPublicKey(),
+      new E.SIGNER_IS_NOT_DEPOSITOR(
+        depositorKeys.publicKey(),
+        this.getPublicKey()
+      )
+    );
+
+    if (!nonce) nonce = generateNonce();
+
+    const rawAuthEntry = await buildDepositAuthEntry({
+      channelId,
+      assetId,
+      depositor: depositorKeys.publicKey() as Ed25519PublicKey,
+      amount: this.getAmount(),
+      conditions: [
+        xdr.ScVal.scvVec(this.getConditions().map((c) => c.toScVal())),
+      ],
+      signatureExpirationLedger,
+      nonce,
+    });
+
+    let signedAuthEntry: xdr.SorobanAuthorizationEntry;
+
+    if (isTransactionSigner(depositorKeys)) {
+      signedAuthEntry = await depositorKeys.signSorobanAuthEntry(
+        rawAuthEntry,
+        signatureExpirationLedger,
+        networkPassphrase
+      );
+    } else {
+      signedAuthEntry = await authorizeEntry(
+        rawAuthEntry,
+        depositorKeys,
+        signatureExpirationLedger,
+        networkPassphrase
+      );
+    }
+
+    this.appendEd25519Signature(signedAuthEntry);
+
+    return this;
+  }
   //==========================================
   // Type Guard Methods
   //==========================================
@@ -329,6 +658,14 @@ export class MoonlightOperation implements BaseOperation {
       : false;
   }
 
+  public isSignedByUTXO(): boolean {
+    return this._utxoSignature !== undefined;
+  }
+
+  public isSignedByEd25519(): boolean {
+    return this._ed25519Signature !== undefined;
+  }
+
   //==========================================
   // Conversion Methods
   //==========================================
@@ -346,7 +683,7 @@ export class MoonlightOperation implements BaseOperation {
       return Condition.withdraw(this.getPublicKey(), this.getAmount());
     }
 
-    throw new Error("Cannot convert SPEND operation to Condition");
+    throw new E.CANNOT_CONVERT_SPEND_OP(this.getUtxo());
   }
 
   /**
@@ -384,7 +721,7 @@ export class MoonlightOperation implements BaseOperation {
       return this.spendToScVal();
     }
 
-    throw new Error("Unsupported operation type for ScVal conversion");
+    throw new E.UNSUPPORTED_OP_TYPE_FOR_SCVAL_CONVERSION(this.getOperation());
   }
 
   private conditionsToScVal(): xdr.ScVal {
@@ -394,7 +731,7 @@ export class MoonlightOperation implements BaseOperation {
   }
 
   private createToScVal(): xdr.ScVal {
-    if (!this.isCreate()) throw new Error("Operation is not CREATE");
+    assert(this.isCreate(), new E.OP_IS_NOT_CREATE(this.getOperation()));
 
     return xdr.ScVal.scvVec([
       xdr.ScVal.scvBytes(Buffer.from(this.getUtxo())),
@@ -403,7 +740,7 @@ export class MoonlightOperation implements BaseOperation {
   }
 
   private spendToScVal(): xdr.ScVal {
-    if (!this.isSpend()) throw new Error("Operation is not SPEND");
+    assert(this.isSpend(), new E.OP_IS_NOT_SPEND(this.getOperation()));
     return xdr.ScVal.scvVec([
       xdr.ScVal.scvBytes(Buffer.from(this.getUtxo())),
       this.conditionsToScVal(),
@@ -411,7 +748,7 @@ export class MoonlightOperation implements BaseOperation {
   }
 
   private depositToScVal(): xdr.ScVal {
-    if (!this.isDeposit()) throw new Error("Operation is not DEPOSIT");
+    assert(this.isDeposit(), new E.OP_IS_NOT_DEPOSIT(this.getOperation()));
 
     return xdr.ScVal.scvVec([
       nativeToScVal(this.getPublicKey(), { type: "address" }),
@@ -421,7 +758,7 @@ export class MoonlightOperation implements BaseOperation {
   }
 
   private withdrawToScVal(): xdr.ScVal {
-    if (!this.isWithdraw()) throw new Error("Operation is not WITHDRAW");
+    assert(this.isWithdraw(), new E.OP_IS_NOT_WITHDRAW(this.getOperation()));
 
     return xdr.ScVal.scvVec([
       nativeToScVal(this.getPublicKey(), { type: "address" }),
@@ -446,5 +783,21 @@ export class MoonlightOperation implements BaseOperation {
    */
   public toXDR(): string {
     return this.toScVal().toXDR("base64");
+  }
+
+  public toMLXDR(): string {
+    return MLXDR.fromOperation(
+      this as
+        | CreateOperation
+        | DepositOperation
+        | WithdrawOperation
+        | SpendOperation
+    );
+  }
+
+  static fromMLXDR(
+    mlxdrString: string
+  ): CreateOperation | DepositOperation | WithdrawOperation | SpendOperation {
+    return MLXDR.toOperation(mlxdrString);
   }
 }

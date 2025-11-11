@@ -1,15 +1,8 @@
-import {
-  type Asset,
-  authorizeEntry,
-  type Keypair,
-  Operation,
-  xdr,
-} from "@stellar/stellar-sdk";
+import { type Keypair, Operation, xdr } from "@stellar/stellar-sdk";
 import { Buffer } from "buffer";
 
 import { generateNonce } from "../utils/common/index.ts";
 
-import { buildAuthPayloadHash } from "../utils/auth/build-auth-payload.ts";
 import type {
   IUTXOKeypairBase,
   UTXOPublicKey,
@@ -18,15 +11,14 @@ import type {
 import { buildSignaturesXDR } from "./signatures/index.ts";
 import {
   buildBundleAuthEntry,
-  buildDepositAuthEntry,
   buildOperationAuthEntryHash,
 } from "./auth/index.ts";
 import { orderSpendByUtxo } from "./utils/index.ts";
 import {
-  assertPositiveAmount,
   assertNoDuplicateCreate,
   assertNoDuplicateSpend,
-  assertNoDuplicatePubKey,
+  assertNoDuplicateDeposit,
+  assertNoDuplicateWithdraw,
   assertSpendExists,
 } from "./validators/index.ts";
 import {
@@ -41,7 +33,12 @@ import type {
   SpendOperation,
   WithdrawOperation,
   MoonlightOperation,
+  BaseOperation,
+  OperationSignature,
 } from "../operation/types.ts";
+import * as E from "./error.ts";
+import { assert } from "../utils/assert/assert.ts";
+import { assertExtOpsExist } from "./validators/operations.ts";
 
 export class MoonlightTransactionBuilder {
   private _create: CreateOperation[] = [];
@@ -50,7 +47,7 @@ export class MoonlightTransactionBuilder {
   private _withdraw: WithdrawOperation[] = [];
   private _channelId: ContractId;
   private _authId: ContractId;
-  private _asset: Asset;
+  private _assetId: ContractId;
   private _network: string;
   private _innerSignatures: Map<Uint8Array, { sig: Buffer; exp: number }> =
     new Map();
@@ -64,17 +61,17 @@ export class MoonlightTransactionBuilder {
   constructor({
     channelId,
     authId,
-    asset,
+    assetId,
     network,
   }: {
     channelId: ContractId;
     authId: ContractId;
-    asset: Asset;
+    assetId: ContractId;
     network: string;
   }) {
     this._channelId = channelId;
     this._authId = authId;
-    this._asset = asset;
+    this._assetId = assetId;
     this._network = network;
   }
 
@@ -97,7 +94,7 @@ export class MoonlightTransactionBuilder {
   private require(arg: "_withdraw"): WithdrawOperation[];
   private require(arg: "_channelId"): ContractId;
   private require(arg: "_authId"): ContractId;
-  private require(arg: "_asset"): Asset;
+  private require(arg: "_assetId"): ContractId;
   private require(arg: "_network"): string;
   private require(
     arg: "_innerSignatures"
@@ -116,7 +113,7 @@ export class MoonlightTransactionBuilder {
       | "_withdraw"
       | "_channelId"
       | "_authId"
-      | "_asset"
+      | "_assetId"
       | "_network"
       | "_innerSignatures"
       | "_providerInnerSignatures"
@@ -127,15 +124,12 @@ export class MoonlightTransactionBuilder {
     | DepositOperation[]
     | WithdrawOperation[]
     | ContractId
-    | Asset
     | string
     | Map<Uint8Array, { sig: Buffer; exp: number }>
     | Map<Ed25519PublicKey, { sig: Buffer; exp: number; nonce: string }>
     | Map<Ed25519PublicKey, xdr.SorobanAuthorizationEntry> {
     if (this[arg] !== undefined) return this[arg];
-    throw new Error(
-      `Property ${arg} is not set in the Transaction Builder instance`
-    );
+    throw new E.PROPERTY_NOT_SET(arg);
   }
 
   //==========================================
@@ -243,13 +237,13 @@ export class MoonlightTransactionBuilder {
   }
 
   /**
-   *  Returns the asset associated with the transaction.
+   *  Returns the contract id of the asset associated with the transaction.
    *
    *  @returns The asset
    *  @throws {Error} If the asset is not set
    */
-  public getAsset(): Asset {
-    return this.require("_asset");
+  public getAssetId(): ContractId {
+    return this.require("_assetId");
   }
 
   /**
@@ -307,12 +301,13 @@ export class MoonlightTransactionBuilder {
     if (op.isSpend()) return this.addSpend(op);
     if (op.isDeposit()) return this.addDeposit(op);
     if (op.isWithdraw()) return this.addWithdraw(op);
-    throw new Error("Unsupported operation type");
+
+    throw new E.UNSUPPORTED_OP_TYPE((op as BaseOperation).getOperation());
   }
 
   private addCreate(op: CreateOperation): MoonlightTransactionBuilder {
     assertNoDuplicateCreate(this.getCreateOperations(), op);
-    assertPositiveAmount(op.getAmount(), "Create operation");
+    assert(op.getAmount() > 0n, new E.AMOUNT_TOO_LOW(op.getAmount()));
 
     this.setCreateOperations([...this.getCreateOperations(), op]);
     return this;
@@ -322,36 +317,41 @@ export class MoonlightTransactionBuilder {
     assertNoDuplicateSpend(this.getSpendOperations(), op);
 
     this.setSpendOperations([...this.getSpendOperations(), op]);
+
+    if (op.isSignedByUTXO()) {
+      this.addInnerSignature(op.getUtxo(), op.getUTXOSignature());
+    }
+
     return this;
   }
 
   private addDeposit(op: DepositOperation): MoonlightTransactionBuilder {
-    assertNoDuplicatePubKey(this.getDepositOperations(), op, "Deposit");
-    assertPositiveAmount(op.getAmount(), "Deposit operation");
+    assertNoDuplicateDeposit(this.getDepositOperations(), op);
+    assert(op.getAmount() > 0n, new E.AMOUNT_TOO_LOW(op.getAmount()));
 
     this.setDepositOperations([...this.getDepositOperations(), op]);
+
+    if (op.isSignedByEd25519()) {
+      this.addExtSignedEntry(op.getPublicKey(), op.getEd25519Signature());
+    }
     return this;
   }
 
   private addWithdraw(op: WithdrawOperation): MoonlightTransactionBuilder {
-    assertNoDuplicatePubKey(this.getWithdrawOperations(), op, "Withdraw");
-    assertPositiveAmount(op.getAmount(), "Withdraw operation");
+    assertNoDuplicateWithdraw(this.getWithdrawOperations(), op);
+    assert(op.getAmount() > 0n, new E.AMOUNT_TOO_LOW(op.getAmount()));
 
     this.setWithdrawOperations([...this.getWithdrawOperations(), op]);
     return this;
   }
 
-  public addInnerSignature(
+  private addInnerSignature(
     utxo: UTXOPublicKey,
-    signature: Buffer,
-    expirationLedger: number
+    signature: OperationSignature
   ): MoonlightTransactionBuilder {
     assertSpendExists(this.getSpendOperations(), utxo);
 
-    this.innerSignatures.set(utxo, {
-      sig: signature,
-      exp: expirationLedger,
-    });
+    this.innerSignatures.set(utxo, signature);
     return this;
   }
 
@@ -373,11 +373,11 @@ export class MoonlightTransactionBuilder {
     pubKey: Ed25519PublicKey,
     signedAuthEntry: xdr.SorobanAuthorizationEntry
   ): MoonlightTransactionBuilder {
-    if (
-      !this.getDepositOperations().find((d) => d.getPublicKey() === pubKey) &&
-      !this.getWithdrawOperations().find((d) => d.getPublicKey() === pubKey)
-    )
-      throw new Error("No deposit or withdraw operation for this public key");
+    assertExtOpsExist(
+      this.getDepositOperations(),
+      this.getWithdrawOperations(),
+      pubKey
+    );
 
     this.extSignatures.set(pubKey, signedAuthEntry);
     return this;
@@ -391,26 +391,33 @@ export class MoonlightTransactionBuilder {
     );
   }
 
-  public getExtAuthEntry(
-    address: Ed25519PublicKey,
-    nonce: string,
-    signatureExpirationLedger: number
-  ): xdr.SorobanAuthorizationEntry {
-    const deposit = this.getDepositOperation(address);
-    if (!deposit) throw new Error("No deposit operation for this address");
-
-    return buildDepositAuthEntry({
-      channelId: this.getChannelId(),
-      assetId: this.getAsset().contractId(this.network),
-      depositor: address,
-      amount: deposit.getAmount(),
-      conditions: [
-        xdr.ScVal.scvVec(deposit.getConditions().map((c) => c.toScVal())),
-      ],
-      nonce,
-      signatureExpirationLedger,
-    });
+  public getSpendOperation(utxo: UTXOPublicKey): SpendOperation | undefined {
+    return this.getSpendOperations().find((s) =>
+      Buffer.from(s.getUtxo()).equals(Buffer.from(utxo))
+    );
   }
+
+  // public getExtAuthEntry(
+  //   address: Ed25519PublicKey,
+  //   nonce: string,
+  //   signatureExpirationLedger: number
+  // ): xdr.SorobanAuthorizationEntry {
+  //   const deposit = this.getDepositOperation(address);
+
+  //   assert(deposit, new E.NO_DEPOSIT_OPS(address));
+
+  //   return buildDepositAuthEntry({
+  //     channelId: this.getChannelId(),
+  //     assetId: this.getAsset().contractId(this.network),
+  //     depositor: address,
+  //     amount: deposit.getAmount(),
+  //     conditions: [
+  //       xdr.ScVal.scvVec(deposit.getConditions().map((c) => c.toScVal())),
+  //     ],
+  //     nonce,
+  //     signatureExpirationLedger,
+  //   });
+  // }
 
   public getAuthRequirementArgs(): xdr.ScVal[] {
     if (this.getSpendOperations().length === 0) return [];
@@ -490,8 +497,8 @@ export class MoonlightTransactionBuilder {
 
   public signaturesXDR(): string {
     const providerSigners = Array.from(this.providerInnerSignatures.keys());
-    if (providerSigners.length === 0)
-      throw new Error("No Provider signatures added");
+
+    assert(providerSigners.length > 0, new E.MISSING_PROVIDER_SIGNATURE());
 
     const spendSigs = Array.from(this.innerSignatures.entries()).map(
       ([utxo, { sig, exp }]) => ({ utxo, sig, exp })
@@ -530,28 +537,20 @@ export class MoonlightTransactionBuilder {
   }
 
   public async signWithSpendUtxo(
-    utxo: IUTXOKeypairBase,
+    utxoKp: IUTXOKeypairBase,
     signatureExpirationLedger: number
   ) {
-    const conditions = this.getSpendOperations()
-      .find((s) => Buffer.from(s.getUtxo()).equals(Buffer.from(utxo.publicKey)))
-      ?.getConditions();
+    const spendOp = this.getSpendOperation(utxoKp.publicKey);
 
-    if (!conditions) throw new Error("No spend operation for this UTXO");
+    assert(spendOp, new E.NO_SPEND_OPS(utxoKp.publicKey));
 
-    const signedHash = await utxo.signPayload(
-      await buildAuthPayloadHash({
-        contractId: this.getChannelId(),
-        conditions,
-        liveUntilLedger: signatureExpirationLedger,
-      })
-    );
-
-    this.addInnerSignature(
-      utxo.publicKey,
-      Buffer.from(signedHash),
+    await spendOp.signWithUTXO(
+      utxoKp,
+      this.getChannelId(),
       signatureExpirationLedger
     );
+
+    this.addInnerSignature(utxoKp.publicKey, spendOp.getUTXOSignature());
   }
 
   public async signExtWithEd25519(
@@ -559,33 +558,27 @@ export class MoonlightTransactionBuilder {
     signatureExpirationLedger: number,
     nonce?: string
   ) {
-    if (!nonce) nonce = generateNonce();
-
-    const rawAuthEntry = this.getExtAuthEntry(
-      keys.publicKey() as Ed25519PublicKey,
-      nonce,
-      signatureExpirationLedger
+    const depositOp = this.getDepositOperation(
+      keys.publicKey() as Ed25519PublicKey
     );
 
-    let signedAuthEntry: xdr.SorobanAuthorizationEntry;
-    if (isTransactionSigner(keys)) {
-      signedAuthEntry = await keys.signSorobanAuthEntry(
-        rawAuthEntry,
-        signatureExpirationLedger,
-        this.network
-      );
-    } else {
-      signedAuthEntry = await authorizeEntry(
-        rawAuthEntry,
-        keys,
-        signatureExpirationLedger,
-        this.network
-      );
-    }
+    assert(
+      depositOp,
+      new E.NO_DEPOSIT_OPS(keys.publicKey() as Ed25519PublicKey)
+    );
+
+    await depositOp.signWithEd25519(
+      keys,
+      signatureExpirationLedger,
+      this.getChannelId(),
+      this.getAssetId(),
+      this.network,
+      nonce
+    );
 
     this.addExtSignedEntry(
       keys.publicKey() as Ed25519PublicKey,
-      signedAuthEntry
+      depositOp.getEd25519Signature()
     );
   }
 

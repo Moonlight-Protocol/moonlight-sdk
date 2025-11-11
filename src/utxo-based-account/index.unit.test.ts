@@ -12,6 +12,7 @@ import { UtxoBasedAccount } from "./index.ts";
 import { UTXOStatus } from "../core/utxo-keypair/types.ts";
 import { StellarDerivator } from "../derivation/stellar/index.ts";
 import { StellarNetworkId } from "../derivation/stellar/stellar-network-id.ts";
+import * as UBA_ERR from "./error.ts";
 
 // Test secret key and contract ID for Stellar Testnet
 const TEST_SECRET_KEY =
@@ -93,8 +94,7 @@ Deno.test("UtxoBasedAccount", async (t) => {
 
       await assertRejects(
         async () => await account.batchLoad(),
-        Error,
-        "Batch fetch function is not provided."
+        UBA_ERR.MISSING_BATCH_FETCH_FN
       );
     }
   );
@@ -135,8 +135,7 @@ Deno.test("UtxoBasedAccount", async (t) => {
 
       assertThrows(
         () => account.updateUTXOState(999, UTXOStatus.UNSPENT),
-        Error,
-        "UTXO with index 999 does not exist."
+        UBA_ERR.MISSING_UTXO_FOR_INDEX
       );
     }
   );

@@ -1,5 +1,6 @@
 import { BaseDerivator, generatePlainTextSeed, hashSeed } from "./index.ts";
 import { assertEquals, assertThrows, assertExists } from "@std/assert";
+import * as E from "../error.ts";
 
 Deno.test("BaseDerivator", async (t) => {
   await t.step("assembleSeed should work with complete components", () => {
@@ -18,8 +19,7 @@ Deno.test("BaseDerivator", async (t) => {
 
     assertThrows(
       () => derivator.assembleSeed("test-index"),
-      Error,
-      "Derivator is not properly configured"
+      E.PROPERTY_NOT_SET
     );
   });
 
@@ -30,8 +30,7 @@ Deno.test("BaseDerivator", async (t) => {
 
     assertThrows(
       () => derivator.assembleSeed("test-index"),
-      Error,
-      "Derivator is not properly configured"
+      E.PROPERTY_NOT_SET
     );
   });
 
@@ -67,8 +66,7 @@ Deno.test("BaseDerivator", async (t) => {
 
     assertThrows(
       () => derivator.withContext("another-context"),
-      Error,
-      "Context has already been set"
+      E.PROPERTY_ALREADY_SET
     );
   });
 
@@ -79,8 +77,7 @@ Deno.test("BaseDerivator", async (t) => {
 
     assertThrows(
       () => derivator.withRoot("another-root"),
-      Error,
-      "Root has already been set"
+      E.PROPERTY_ALREADY_SET
     );
   });
 });

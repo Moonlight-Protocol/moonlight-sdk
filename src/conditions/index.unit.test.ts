@@ -6,6 +6,11 @@ import { Condition } from "./index.ts";
 import { generateP256KeyPair } from "../utils/secp256r1/generateP256KeyPair.ts";
 import { UTXOOperationType } from "../operation/types.ts";
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
+import type {
+  CreateCondition,
+  DepositCondition,
+  WithdrawCondition,
+} from "./types.ts";
 
 describe("Condition", () => {
   let validPublicKey: Ed25519PublicKey;
@@ -163,6 +168,135 @@ describe("Condition", () => {
 
       assertExists(scVal);
       assertEquals(scVal.switch().name, "scvVec");
+    });
+
+    it("should maintain data integrity through XDR conversion", () => {
+      const withdrawCondition = Condition.withdraw(validPublicKey, validAmount);
+      const withdrawScVal = withdrawCondition.toScVal();
+
+      const recreatedWithdrawCondition = Condition.fromScVal(
+        withdrawScVal
+      ) as WithdrawCondition;
+
+      assertEquals(
+        recreatedWithdrawCondition.getOperation(),
+        withdrawCondition.getOperation()
+      );
+      assertEquals(
+        recreatedWithdrawCondition.getAmount(),
+        withdrawCondition.getAmount()
+      );
+      assertEquals(
+        recreatedWithdrawCondition.getPublicKey(),
+        withdrawCondition.getPublicKey()
+      );
+
+      const depositCondition = Condition.deposit(validPublicKey, validAmount);
+      const depositScVal = depositCondition.toScVal();
+
+      const recreatedDepositCondition = Condition.fromScVal(
+        depositScVal
+      ) as DepositCondition;
+
+      assertEquals(
+        recreatedDepositCondition.getOperation(),
+        depositCondition.getOperation()
+      );
+      assertEquals(
+        recreatedDepositCondition.getAmount(),
+        depositCondition.getAmount()
+      );
+      assertEquals(
+        recreatedDepositCondition.getPublicKey(),
+        depositCondition.getPublicKey()
+      );
+
+      const createCondition = Condition.create(validUtxo, validAmount);
+      const createScVal = createCondition.toScVal();
+
+      const recreatedCreateCondition = Condition.fromScVal(
+        createScVal
+      ) as CreateCondition;
+
+      assertEquals(
+        recreatedCreateCondition.getOperation(),
+        createCondition.getOperation()
+      );
+      assertEquals(
+        recreatedCreateCondition.getAmount(),
+        createCondition.getAmount()
+      );
+      assertEquals(
+        recreatedCreateCondition.getUtxo(),
+        createCondition.getUtxo()
+      );
+    });
+
+    it("should maintain data integrity through MLXDR conversion", () => {
+      const createCondition = Condition.create(validUtxo, validAmount);
+      const mlxdrString = createCondition.toMLXDR();
+
+      const recreatedCreateCondition = Condition.fromMLXDR(
+        mlxdrString
+      ) as CreateCondition;
+
+      assertEquals(
+        recreatedCreateCondition.getOperation(),
+        createCondition.getOperation()
+      );
+      assertEquals(
+        recreatedCreateCondition.getAmount(),
+        createCondition.getAmount()
+      );
+      assertEquals(
+        recreatedCreateCondition.getUtxo(),
+        createCondition.getUtxo()
+      );
+
+      const depositCondition = Condition.deposit(validPublicKey, validAmount);
+      const mlxdrStringDeposit = depositCondition.toMLXDR();
+
+      const recreatedDepositCondition = Condition.fromMLXDR(
+        mlxdrStringDeposit
+      ) as DepositCondition;
+
+      assertEquals(
+        recreatedDepositCondition.getOperation(),
+        depositCondition.getOperation()
+      );
+      assertEquals(
+        recreatedDepositCondition.getAmount(),
+        depositCondition.getAmount()
+      );
+      assertEquals(
+        recreatedDepositCondition.getPublicKey(),
+        depositCondition.getPublicKey()
+      );
+
+      const withdrawCondition = Condition.withdraw(validPublicKey, validAmount);
+      const mlxdrStringWithdraw = withdrawCondition.toMLXDR();
+
+      const recreatedWithdrawCondition = Condition.fromMLXDR(
+        mlxdrStringWithdraw
+      ) as WithdrawCondition;
+
+      assertEquals(
+        recreatedWithdrawCondition.getOperation(),
+        withdrawCondition.getOperation()
+      );
+      assertEquals(
+        recreatedWithdrawCondition.getAmount(),
+        withdrawCondition.getAmount()
+      );
+      assertEquals(
+        recreatedWithdrawCondition.getPublicKey(),
+        withdrawCondition.getPublicKey()
+      );
+
+      console.log("MLXDR Conversion tests passed");
+      console.log(" CREATE MLXDR:", mlxdrString);
+      console.log("DEPOSIT MLXDR:", mlxdrStringDeposit);
+      console.log("WITHDRAW MLXDR:", mlxdrStringWithdraw);
     });
   });
 

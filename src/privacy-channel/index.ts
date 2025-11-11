@@ -13,6 +13,7 @@ import {
 } from "./constants.ts";
 import type { ChannelInvoke, ChannelRead } from "./types.ts";
 import type { xdr } from "@stellar/stellar-sdk";
+import * as E from "./error.ts";
 
 export class PrivacyChannel {
   private _client: Contract;
@@ -66,7 +67,7 @@ export class PrivacyChannel {
     arg: "_client" | "_authId" | "_networkConfig" | "_derivator" | "_assetId"
   ): Contract | ContractId | NetworkConfig | StellarDerivator {
     if (this[arg]) return this[arg];
-    throw new Error(`Property ${arg} is not set in the Channel instance.`);
+    throw new E.PROPERTY_NOT_SET(arg);
   }
 
   //==========================================

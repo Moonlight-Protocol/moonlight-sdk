@@ -1,10 +1,7 @@
 import { Buffer } from "buffer";
 import type { UTXOPublicKey } from "../../core/utxo-keypair-base/types.ts";
 import type { Ed25519PublicKey } from "@colibri/core";
-
-export const assertPositiveAmount = (amount: bigint, context: string) => {
-  if (amount <= 0n) throw new Error(`${context} amount must be positive`);
-};
+import * as E from "../error.ts";
 
 export const assertNoDuplicateCreate = (
   existing: { getUtxo(): UTXOPublicKey }[],
@@ -15,7 +12,7 @@ export const assertNoDuplicateCreate = (
       Buffer.from(c.getUtxo()).equals(Buffer.from(op.getUtxo()))
     )
   )
-    throw new Error("Create operation for this UTXO already exists");
+    throw new E.DUPLICATE_CREATE_OP(op.getUtxo());
 };
 
 export const assertNoDuplicateSpend = (
@@ -27,16 +24,23 @@ export const assertNoDuplicateSpend = (
       Buffer.from(s.getUtxo()).equals(Buffer.from(op.getUtxo()))
     )
   )
-    throw new Error("Spend operation for this UTXO already exists");
+    throw new E.DUPLICATE_SPEND_OP(op.getUtxo());
 };
 
-export const assertNoDuplicatePubKey = (
+export const assertNoDuplicateDeposit = (
   existing: { getPublicKey(): Ed25519PublicKey }[],
-  op: { getPublicKey(): Ed25519PublicKey },
-  context: string
+  op: { getPublicKey(): Ed25519PublicKey }
 ) => {
   if (existing.find((d) => d.getPublicKey() === op.getPublicKey()))
-    throw new Error(`${context} operation for this public key already exists`);
+    throw new E.DUPLICATE_DEPOSIT_OP(op.getPublicKey());
+};
+
+export const assertNoDuplicateWithdraw = (
+  existing: { getPublicKey(): Ed25519PublicKey }[],
+  op: { getPublicKey(): Ed25519PublicKey }
+) => {
+  if (existing.find((d) => d.getPublicKey() === op.getPublicKey()))
+    throw new E.DUPLICATE_WITHDRAW_OP(op.getPublicKey());
 };
 
 export const assertSpendExists = (
@@ -44,5 +48,33 @@ export const assertSpendExists = (
   utxo: UTXOPublicKey
 ) => {
   if (!existing.find((s) => Buffer.from(s.getUtxo()).equals(Buffer.from(utxo))))
-    throw new Error("No spend operation for this UTXO");
+    throw new E.NO_SPEND_OPS(utxo);
+};
+
+export const assertExtOpsExist = (
+  existingDeposit: { getPublicKey(): Ed25519PublicKey }[],
+  existingWithdraw: { getPublicKey(): Ed25519PublicKey }[],
+  pubKey: Ed25519PublicKey
+) => {
+  if (
+    !existingDeposit.find((d) => d.getPublicKey() === pubKey) &&
+    !existingWithdraw.find((w) => w.getPublicKey() === pubKey)
+  )
+    throw new E.NO_EXT_OPS(pubKey);
+};
+
+export const assertDepositExists = (
+  existing: { getPublicKey(): Ed25519PublicKey }[],
+  pubKey: Ed25519PublicKey
+) => {
+  if (!existing.find((d) => d.getPublicKey() === pubKey))
+    throw new E.NO_DEPOSIT_OPS(pubKey);
+};
+
+export const assertWithdrawExists = (
+  existing: { getPublicKey(): Ed25519PublicKey }[],
+  pubKey: Ed25519PublicKey
+) => {
+  if (!existing.find((d) => d.getPublicKey() === pubKey))
+    throw new E.NO_WITHDRAW_OPS(pubKey);
 };
