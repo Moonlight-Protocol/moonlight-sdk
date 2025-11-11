@@ -38,6 +38,9 @@ export interface BaseOperation {
   clearConditions(): this;
   toXDR(): string;
   toScVal(): xdr.ScVal;
+  // fromScVal(scVal: xdr.ScVal): this;
+  // fromMLXDR(mlxdrString: string): this;
+  // toMLXDR(): string;
 }
 
 export interface CreateOperation extends BaseOperation {
