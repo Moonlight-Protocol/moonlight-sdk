@@ -38,24 +38,10 @@ export abstract class DerivationError<
 }
 
 export enum Code {
-  UNEXPECTED_ERROR = "DER_000",
+  UNEXPECTED_ERROR = "DER_000", // Reserved but unused for now
   PROPERTY_ALREADY_SET = "DER_001",
   PROPERTY_NOT_SET = "DER_002",
 }
-
-// Currently unused, reserving
-//
-// export class UNEXPECTED_ERROR extends ContractError<Code> {
-//   constructor(cause: Error) {
-//     super({
-//       code: Code.UNEXPECTED_ERROR,
-//       message: "An unexpected error occurred in the Contract module!",
-//       details: "See the 'cause' for more details",
-//       cause,
-//       data: {},
-//     });
-//   }
-// }
 
 export class PROPERTY_ALREADY_SET extends DerivationError<Code> {
   constructor(property: string, value: string) {
@@ -80,7 +66,6 @@ export class PROPERTY_NOT_SET extends DerivationError<Code> {
 }
 
 export const DER_ERRORS = {
-  //    [Code.UNEXPECTED_ERROR]: UNEXPECTED_ERROR,
   [Code.PROPERTY_ALREADY_SET]: PROPERTY_ALREADY_SET,
   [Code.PROPERTY_NOT_SET]: PROPERTY_NOT_SET,
 };
