@@ -2,7 +2,8 @@
 
 ## Project Overview
 
-This is the Moonlight SDK, a privacy-focused toolkit for blockchain development with special emphasis on Stellar Soroban smart contracts.
+This is the Moonlight SDK, a privacy-focused toolkit for blockchain development
+with special emphasis on Stellar Soroban smart contracts.
 
 ## Core Collaboration Guidelines
 
@@ -10,7 +11,8 @@ This is the Moonlight SDK, a privacy-focused toolkit for blockchain development 
 - Prioritize readability and understandability as this is an SDK
 - Manage complexity carefully, especially for protocol-specific business rules
 - Avoid code bloat and unnecessary functions
-- When suggesting significant changes, provide reasoning and seek confirmation first
+- When suggesting significant changes, provide reasoning and seek confirmation
+  first
 - Always explain the rationale behind implementation approaches
 - Keep unit tests in the same directory as the features they test
 - Place integration tests in the test/integration folder
@@ -30,7 +32,8 @@ This is the Moonlight SDK, a privacy-focused toolkit for blockchain development 
 
 - Always include file extensions in imports (e.g., `.ts`, `.js`)
 - For Deno compatibility, use explicit file extensions in imports
-- Order imports alphabetically: built-in modules, external dependencies, then local modules
+- Order imports alphabetically: built-in modules, external dependencies, then
+  local modules
 
 ### TypeScript
 
@@ -40,7 +43,8 @@ This is the Moonlight SDK, a privacy-focused toolkit for blockchain development 
 - Prefer readonly properties when objects shouldn't be modified
 - Use undefined over null when possible
 - All types must be placed in the types.ts file at the same directory
-- All enums should be placed in their own files, also at the same directory as you would create it
+- All enums should be placed in their own files, also at the same directory as
+  you would create it
 
 ### Error Handling
 
@@ -57,7 +61,8 @@ This is the Moonlight SDK, a privacy-focused toolkit for blockchain development 
 - Structure tests using Deno's nested test pattern:
   - Use `Deno.test()` with a single main test name for the class/module
   - Use `t.step()` for individual test cases within the module
-  - Use descriptive step names in format "method/feature should behavior when condition"
+  - Use descriptive step names in format "method/feature should behavior when
+    condition"
 - Group related test cases together under the main test
 - Mock dependencies appropriately to isolate the unit under test
 - Include setup/teardown code within the relevant test steps
@@ -74,7 +79,8 @@ This is the Moonlight SDK, a privacy-focused toolkit for blockchain development 
 - Use descriptive file names that indicate which features are being tested
 - Include appropriate setup for real network/blockchain interactions
 - Create comprehensive tests that cover complete workflows
-- Document any external dependencies or requirements for running integration tests
+- Document any external dependencies or requirements for running integration
+  tests
 
 ### Blockchain-specific
 
@@ -108,12 +114,17 @@ This is the Moonlight SDK, a privacy-focused toolkit for blockchain development 
 
 - Follow the established pattern for UTXO-based privacy components
 - Maintain consistent API patterns across the SDK
-- When implementing cryptographic functions, prioritize security over performance
+- When implementing cryptographic functions, prioritize security over
+  performance
 - Include proper input validation for all public-facing APIs
 
 ## General Instructions:
 
-- **No Placeholders**: Never include placeholder text in generated code or documentation.
-- **Ask First**: Always ask for the necessary information to replace any potential placeholders before generating the content.
-- **Use Provided Information**: Use the information provided by the user to fill in the details accurately.
-- **Refer to Existing Files**: Before creating a new file, always check if an existing file can be modified to include the new content.
+- **No Placeholders**: Never include placeholder text in generated code or
+  documentation.
+- **Ask First**: Always ask for the necessary information to replace any
+  potential placeholders before generating the content.
+- **Use Provided Information**: Use the information provided by the user to fill
+  in the details accurately.
+- **Refer to Existing Files**: Before creating a new file, always check if an
+  existing file can be modified to include the new content.

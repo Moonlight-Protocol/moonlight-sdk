@@ -1,5 +1,7 @@
 {
   "deno.enable": true,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "denoland.vscode-deno",
   "github.copilot.editor.enableCodeActions": true,
   "github.copilot.advanced": {
     "instructionPath": ".github/copilot-instructions.md"
@@ -10,9 +12,6 @@
     },
     {
       "text": "Be extremely detailed with the file changes and the reason for the change."
-    },
-    {
-      "text": "Add emoji to simbolize the type of change or context. Never humorous."
     }
   ]
 }

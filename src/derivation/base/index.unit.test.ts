@@ -1,5 +1,6 @@
 import { BaseDerivator, generatePlainTextSeed, hashSeed } from "./index.ts";
-import { assertEquals, assertThrows, assertExists } from "@std/assert";
+import { assertEquals, assertExists, assertThrows } from "@std/assert";
+import * as E from "../error.ts";
 
 Deno.test("BaseDerivator", async (t) => {
   await t.step("assembleSeed should work with complete components", () => {
@@ -13,25 +14,23 @@ Deno.test("BaseDerivator", async (t) => {
 
   await t.step("assembleSeed should throw on missing context", () => {
     const derivator = new BaseDerivator<string, string, string>().withRoot(
-      "test-root"
+      "test-root",
     );
 
     assertThrows(
       () => derivator.assembleSeed("test-index"),
-      Error,
-      "Derivator is not properly configured"
+      E.PROPERTY_NOT_SET,
     );
   });
 
   await t.step("assembleSeed should throw on missing root", () => {
     const derivator = new BaseDerivator<string, string, string>().withContext(
-      "test-context"
+      "test-context",
     );
 
     assertThrows(
       () => derivator.assembleSeed("test-index"),
-      Error,
-      "Derivator is not properly configured"
+      E.PROPERTY_NOT_SET,
     );
   });
 
@@ -62,25 +61,23 @@ Deno.test("BaseDerivator", async (t) => {
 
   await t.step("withContext should throw when setting context twice", () => {
     const derivator = new BaseDerivator<string, string, string>().withContext(
-      "test-context"
+      "test-context",
     );
 
     assertThrows(
       () => derivator.withContext("another-context"),
-      Error,
-      "Context has already been set"
+      E.PROPERTY_ALREADY_SET,
     );
   });
 
   await t.step("withRoot should throw when setting root twice", () => {
     const derivator = new BaseDerivator<string, string, string>().withRoot(
-      "test-root"
+      "test-root",
     );
 
     assertThrows(
       () => derivator.withRoot("another-root"),
-      Error,
-      "Root has already been set"
+      E.PROPERTY_ALREADY_SET,
     );
   });
 });

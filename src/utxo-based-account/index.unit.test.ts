@@ -4,14 +4,15 @@
  */
 import {
   assertEquals,
-  assertThrows,
-  assertRejects,
   assertExists,
+  assertRejects,
+  assertThrows,
 } from "@std/assert";
 import { UtxoBasedAccount } from "./index.ts";
 import { UTXOStatus } from "../core/utxo-keypair/types.ts";
 import { StellarDerivator } from "../derivation/stellar/index.ts";
 import { StellarNetworkId } from "../derivation/stellar/stellar-network-id.ts";
+import * as UBA_ERR from "./error.ts";
 
 // Test secret key and contract ID for Stellar Testnet
 const TEST_SECRET_KEY =
@@ -23,7 +24,7 @@ Deno.test("UtxoBasedAccount", async (t) => {
   const getBaseDerivator = () =>
     new StellarDerivator().withNetworkAndContract(
       StellarNetworkId.Testnet,
-      TEST_CONTRACT_ID
+      TEST_CONTRACT_ID,
     );
 
   await t.step("constructor should initialize with required parameters", () => {
@@ -75,9 +76,9 @@ Deno.test("UtxoBasedAccount", async (t) => {
       assertEquals(utxos.length, 3);
       assertEquals(
         utxos.map((utxo) => Number(utxo.index)),
-        [1, 2, 3]
+        [1, 2, 3],
       );
-    }
+    },
   );
 
   await t.step(
@@ -93,10 +94,9 @@ Deno.test("UtxoBasedAccount", async (t) => {
 
       await assertRejects(
         async () => await account.batchLoad(),
-        Error,
-        "Batch fetch function is not provided."
+        UBA_ERR.MISSING_BATCH_FETCH_FN,
       );
-    }
+    },
   );
 
   await t.step(
@@ -119,7 +119,7 @@ Deno.test("UtxoBasedAccount", async (t) => {
       assertEquals(account.getUTXOsByState(UTXOStatus.UNSPENT).length, 2);
       assertEquals(account.getUTXOsByState(UTXOStatus.SPENT).length, 1);
       assertEquals(account.getUTXOsByState(UTXOStatus.FREE).length, 0);
-    }
+    },
   );
 
   await t.step(
@@ -135,10 +135,9 @@ Deno.test("UtxoBasedAccount", async (t) => {
 
       assertThrows(
         () => account.updateUTXOState(999, UTXOStatus.UNSPENT),
-        Error,
-        "UTXO with index 999 does not exist."
+        UBA_ERR.MISSING_UTXO_FOR_INDEX,
       );
-    }
+    },
   );
 
   await t.step(
@@ -164,7 +163,7 @@ Deno.test("UtxoBasedAccount", async (t) => {
       assertEquals(account.getUTXOsByState(UTXOStatus.FREE).length, 1);
       assertEquals(account.getUTXOsByState(UTXOStatus.UNSPENT).length, 1);
       assertEquals(account.getUTXOsByState(UTXOStatus.SPENT).length, 1);
-    }
+    },
   );
 
   await t.step(
@@ -190,7 +189,7 @@ Deno.test("UtxoBasedAccount", async (t) => {
       assertEquals(selection.totalAmount, 300n);
       assertEquals(selection.changeAmount, 50n);
       assertEquals(selection.selectedUTXOs.length, 2);
-    }
+    },
   );
 
   await t.step(
@@ -212,7 +211,7 @@ Deno.test("UtxoBasedAccount", async (t) => {
 
       const selection = account.selectUTXOsForTransfer(1000n);
       assertEquals(selection, null);
-    }
+    },
   );
 
   await t.step(
@@ -227,7 +226,7 @@ Deno.test("UtxoBasedAccount", async (t) => {
       });
 
       assertEquals(account.getTotalBalance(), 0n);
-    }
+    },
   );
 
   await t.step(
@@ -252,7 +251,7 @@ Deno.test("UtxoBasedAccount", async (t) => {
       // - Third UTXO: 200n (UNSPENT)
       // - Fourth UTXO: 300n (UNSPENT)
       assertEquals(account.getTotalBalance(), 600n);
-    }
+    },
   );
 
   await t.step(
@@ -278,6 +277,6 @@ Deno.test("UtxoBasedAccount", async (t) => {
       // Change one UTXO to SPENT state
       account.updateUTXOState(2, UTXOStatus.SPENT, 0n);
       assertEquals(account.getTotalBalance(), 400n);
-    }
+    },
   );
 });

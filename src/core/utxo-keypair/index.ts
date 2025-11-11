@@ -7,18 +7,17 @@ import {
   type UTXOKeypairOptions,
   UTXOStatus,
 } from "./types.ts";
+import * as E from "./error.ts";
+import { assert } from "../../utils/assert/assert.ts";
 
 /**
  * Enhanced UTXOKeypair with state management capabilities
  * Represents a keypair that can be used for UTXOs in privacy-preserving protocols
  */
 export class UTXOKeypair<
-    Context extends string = string,
-    Index extends string = string
-  >
-  extends UTXOKeypairBase
-  implements IUTXOKeypair<Context, Index>
-{
+  Context extends string = string,
+  Index extends string = string,
+> extends UTXOKeypairBase implements IUTXOKeypair<Context, Index> {
   // Derivation information - immutable after creation
   readonly context: Context;
   readonly index: Index;
@@ -44,15 +43,13 @@ export class UTXOKeypair<
   static async fromDerivator<
     DContext extends string = string,
     DRoot extends string = string,
-    DIndex extends string = string
+    DIndex extends string = string,
   >(
     derivator: BaseDerivator<DContext, DRoot, DIndex>,
     index: DIndex,
-    options: UTXOKeypairOptions = {}
+    options: UTXOKeypairOptions = {},
   ): Promise<UTXOKeypair<DContext, DIndex>> {
-    if (!derivator.isConfigured()) {
-      throw new Error("Derivator is not properly configured");
-    }
+    assert(derivator.isConfigured(), new E.DERIVATOR_NOT_CONFIGURED(derivator));
 
     const context = derivator.getContext();
     const keypair = await derivator.deriveKeypair(index);
@@ -64,7 +61,7 @@ export class UTXOKeypair<
         privateKey: keypair.privateKey,
         publicKey: keypair.publicKey,
       },
-      options
+      options,
     );
   }
 
@@ -82,11 +79,9 @@ export class UTXOKeypair<
     derivator: BaseDerivator<DContext, string, `${number}`>,
     startIdx: number,
     count: number,
-    options: UTXOKeypairOptions = {}
+    options: UTXOKeypairOptions = {},
   ): Promise<UTXOKeypair<DContext, `${number}`>[]> {
-    if (!derivator.isConfigured()) {
-      throw new Error("Derivator is not properly configured");
-    }
+    assert(derivator.isConfigured(), new E.DERIVATOR_NOT_CONFIGURED(derivator));
 
     const utxos: UTXOKeypair<DContext, `${number}`>[] = [];
 
@@ -112,7 +107,7 @@ export class UTXOKeypair<
       privateKey: Uint8Array;
       publicKey: Uint8Array;
     },
-    options: UTXOKeypairOptions = {}
+    options: UTXOKeypairOptions = {},
   ) {
     super({ privateKey: args.privateKey, publicKey: args.publicKey });
 
@@ -127,9 +122,7 @@ export class UTXOKeypair<
 
     // Auto-load if requested and balance fetcher is available
     if (options.autoLoad && this.balanceFetcher) {
-      this.load().catch((e) => {
-        console.error("Failed to auto-load UTXO state:", e);
-      });
+      this.load();
     }
   }
 
@@ -190,7 +183,7 @@ export class UTXOKeypair<
   async load(): Promise<void> {
     if (!this.balanceFetcher) {
       throw new Error(
-        "Cannot load UTXO state: No balance fetcher set. Use setBalanceFetcher() first."
+        "Cannot load UTXO state: No balance fetcher set. Use setBalanceFetcher() first.",
       );
     }
 

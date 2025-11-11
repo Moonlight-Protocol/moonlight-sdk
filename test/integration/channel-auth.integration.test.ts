@@ -2,26 +2,26 @@ import { assertEquals, assertExists } from "@std/assert";
 import { beforeAll, describe, it } from "@std/testing/bdd";
 
 import {
+  Contract,
+  initializeWithFriendbot,
   LocalSigner,
   NativeAccount,
   TestNet,
-  initializeWithFriendbot,
-  Contract,
 } from "@colibri/core";
 
 import type {
+  ContractId,
   Ed25519PublicKey,
   TransactionConfig,
-  ContractId,
 } from "@colibri/core";
 
 import type { Buffer } from "node:buffer";
 import { loadContractWasm } from "../helpers/load-wasm.ts";
 
 import {
-  AuthSpec,
-  AuthReadMethods,
   AuthInvokeMethods,
+  AuthReadMethods,
+  AuthSpec,
   ChannelAuth,
   type ChannelTypes,
 } from "../../mod.ts";
@@ -33,7 +33,7 @@ describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
 
   const admin = NativeAccount.fromMasterSigner(LocalSigner.generateRandom());
   const providerA = NativeAccount.fromMasterSigner(
-    LocalSigner.generateRandom()
+    LocalSigner.generateRandom(),
   );
 
   const txConfig: TransactionConfig = {
@@ -48,12 +48,12 @@ describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
   beforeAll(async () => {
     await initializeWithFriendbot(
       networkConfig.friendbotUrl,
-      admin.address() as Ed25519PublicKey
+      admin.address() as Ed25519PublicKey,
     );
 
     await initializeWithFriendbot(
       networkConfig.friendbotUrl,
-      providerA.address() as Ed25519PublicKey
+      providerA.address() as Ed25519PublicKey,
     );
 
     authWasm = loadContractWasm("channel_auth_contract");

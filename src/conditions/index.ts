@@ -1,5 +1,10 @@
-import { StrKey, type Ed25519PublicKey } from "@colibri/core";
-import { nativeToScVal, xdr } from "@stellar/stellar-sdk";
+import { type Ed25519PublicKey, StrKey } from "@colibri/core";
+import {
+  nativeToScVal,
+  scValToBigInt,
+  scValToNative,
+  xdr,
+} from "@stellar/stellar-sdk";
 
 import { Buffer } from "node:buffer";
 import type {
@@ -10,6 +15,7 @@ import type {
 } from "./types.ts";
 import { UTXOOperationType } from "../operation/types.ts";
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
+import { MLXDR } from "../custom-xdr/index.ts";
 
 /**
  * Represents a condition for UTXO operations in the Moonlight privacy protocol.
@@ -114,7 +120,7 @@ export class Condition implements BaseCondition {
    */
   static deposit(
     publicKey: Ed25519PublicKey,
-    amount: bigint
+    amount: bigint,
   ): DepositCondition {
     if (!StrKey.isValidEd25519PublicKey(publicKey)) {
       throw new Error("Invalid Ed25519 public key");
@@ -148,7 +154,7 @@ export class Condition implements BaseCondition {
    */
   static withdraw(
     publicKey: Ed25519PublicKey,
-    amount: bigint
+    amount: bigint,
   ): WithdrawCondition {
     if (!StrKey.isValidEd25519PublicKey(publicKey)) {
       throw new Error("Invalid Ed25519 public key.");
@@ -158,6 +164,77 @@ export class Condition implements BaseCondition {
       publicKey,
       amount,
     }) as WithdrawCondition;
+  }
+
+  /**
+   *   Creates a Condition instance from a base64-encoded XDR string.
+   *
+   * @param xdrString  - The base64-encoded XDR representation of the condition
+   * @returns A Condition instance (CreateCondition, DepositCondition, or WithdrawCondition)
+   */
+  public static fromXDR(
+    xdrString: string,
+  ): CreateCondition | DepositCondition | WithdrawCondition {
+    const scVal = xdr.ScVal.fromXDR(xdrString, "base64");
+    return Condition.fromScVal(scVal);
+  }
+
+  /**
+   *  Creates a Condition instance from a Moonlight XDR string.
+   *
+   * @param mlxdrString  - The Moonlight XDR representation of the condition
+   * @returns A Condition instance (CreateCondition, DepositCondition, or WithdrawCondition)
+   */
+  public static fromMLXDR(
+    mlxdrString: string,
+  ): CreateCondition | DepositCondition | WithdrawCondition {
+    return MLXDR.toCondition(mlxdrString);
+  }
+
+  /**
+   * Creates a Condition instance from a Stellar ScVal representation.
+   * @param scVal - The Stellar ScVal representation of the condition.
+   * @returns A Condition instance (CreateCondition, DepositCondition, or WithdrawCondition)
+   */
+  public static fromScVal(
+    scVal: xdr.ScVal,
+  ): CreateCondition | DepositCondition | WithdrawCondition {
+    if (scVal.switch().name !== xdr.ScValType.scvVec().name) {
+      throw new Error("Invalid ScVal type for Condition");
+    }
+
+    const vec = scVal.vec();
+
+    if (vec === null || vec.length !== 3) {
+      throw new Error("Invalid ScVal vector length for Condition");
+    }
+
+    const opScVal = vec[0];
+    const addressScVal = vec[1];
+    const amountScVal = vec[2];
+    const amount = scValToBigInt(amountScVal);
+
+    const opType = opScVal.sym().toString() as UTXOOperationType;
+
+    if (opType === UTXOOperationType.CREATE) {
+      const utxo: UTXOPublicKey = Uint8Array.from(addressScVal.bytes());
+      return Condition.create(utxo, amount);
+    }
+
+    if (opType === UTXOOperationType.DEPOSIT) {
+      const address = scValToNative(addressScVal) as Ed25519PublicKey;
+      return Condition.deposit(address, amount);
+    }
+
+    if (opType === UTXOOperationType.WITHDRAW) {
+      const address = scValToNative(addressScVal) as Ed25519PublicKey;
+
+      return Condition.withdraw(address, amount);
+    }
+
+    throw new Error(
+      `Unsupported operation type for Condition.fromScVal: ${opType}`,
+    );
   }
 
   //==========================================
@@ -178,7 +255,7 @@ export class Condition implements BaseCondition {
   private require(arg: "_publicKey"): Ed25519PublicKey;
   private require(arg: "_utxo"): UTXOPublicKey;
   private require(
-    arg: "_op" | "_amount" | "_publicKey" | "_utxo"
+    arg: "_op" | "_amount" | "_publicKey" | "_utxo",
   ): UTXOOperationType | bigint | Ed25519PublicKey | UTXOPublicKey {
     if (this[arg]) return this[arg];
     throw new Error(`Property ${arg} is not set in the Condition instance`);
@@ -278,10 +355,9 @@ export class Condition implements BaseCondition {
    */
   public toScVal(): xdr.ScVal {
     const actionScVal = xdr.ScVal.scvSymbol(this.getOperation());
-    const addressScVal =
-      this.getOperation() === UTXOOperationType.CREATE
-        ? xdr.ScVal.scvBytes(Buffer.from(this.getUtxo()))
-        : nativeToScVal(this.getPublicKey(), { type: "address" });
+    const addressScVal = this.getOperation() === UTXOOperationType.CREATE
+      ? xdr.ScVal.scvBytes(Buffer.from(this.getUtxo()))
+      : nativeToScVal(this.getPublicKey(), { type: "address" });
     const amountScVal = nativeToScVal(this.getAmount(), { type: "i128" });
 
     const conditionScVal = xdr.ScVal.scvVec([
@@ -309,6 +385,16 @@ export class Condition implements BaseCondition {
    */
   public toXDR(): string {
     return this.toScVal().toXDR("base64");
+  }
+
+  /**
+   * Converts this condition to Moonlight's custom MLXDR format.
+   * @returns The condition as a Moonlight XDR string
+   */
+  public toMLXDR(): string {
+    return MLXDR.fromCondition(
+      this as CreateCondition | DepositCondition | WithdrawCondition,
+    );
   }
 
   //==========================================

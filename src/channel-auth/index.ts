@@ -1,7 +1,7 @@
 import {
   Contract,
-  type NetworkConfig,
   type ContractId,
+  type NetworkConfig,
   type TransactionConfig,
 } from "@colibri/core";
 import {
@@ -36,7 +36,7 @@ export class ChannelAuth {
    * @param arg - The name of the property to retrieve.
    * @returns The value of the requested property.
    * @throws {Error} If the requested property is not set.
-   * */
+   */
   private require(arg: "_client"): Contract;
   private require(arg: "_networkConfig"): NetworkConfig;
   private require(arg: "_client" | "_networkConfig"): Contract | NetworkConfig {
@@ -56,7 +56,7 @@ export class ChannelAuth {
    * @params None
    * @returns {Contract} The Contract client instance.
    * @throws {Error} If the client instance is not set.
-   * */
+   */
   private getClient(): Contract {
     return this.require("_client");
   }
@@ -67,7 +67,7 @@ export class ChannelAuth {
    * @params None
    * @returns {NetworkConfig} The NetworkConfig instance.
    * @throws {Error} If the NetworkConfig instance is not set.
-   * */
+   */
   public getNetworkConfig(): NetworkConfig {
     return this.require("_networkConfig");
   }
@@ -78,7 +78,7 @@ export class ChannelAuth {
    * @params None
    * @returns {ContractId} The Contract ID of the auth contract.
    * @throws {Error} If the client instance is not set.
-   * */
+   */
   public getAuthId(): ContractId {
     return this.getClient().getContractId();
   }
@@ -96,7 +96,7 @@ export class ChannelAuth {
    * @param {M} args.method - The read method to call.
    * @param {AuthReadMethods[M]["input"]} args.methodArgs - The arguments for the read method.
    * @returns {Promise<AuthReadMethods[M]["output"]>} A promise that resolves to the output of the read method.
-   * */
+   */
 
   public async read<M extends AuthReadMethods>(args: {
     method: M;
@@ -114,7 +114,7 @@ export class ChannelAuth {
    * @param {M} args.method - The write method to call.
    * @param {AuthInvokeMethods[M]["input"]} args.methodArgs - The arguments for the write method.
    * @returns {ReturnType<Contract["invoke"]>} A promise that resolves to the invoke colibri response.
-   * */
+   */
   public async invoke<M extends AuthInvokeMethods>(args: {
     method: M;
     methodArgs: AuthInvoke[M]["input"];

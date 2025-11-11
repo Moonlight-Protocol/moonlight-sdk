@@ -1,7 +1,7 @@
 import {
-  StellarDerivator,
   assembleNetworkContext,
   createForAccount,
+  StellarDerivator,
 } from "./index.ts";
 import { StellarNetworkId } from "./stellar-network-id.ts";
 import { assertEquals, assertExists } from "@std/assert";
@@ -21,7 +21,7 @@ Deno.test("StellarDerivator", async (t) => {
 
     const expectedContext = assembleNetworkContext(
       TEST_NETWORK,
-      TEST_CONTRACT_ID
+      TEST_CONTRACT_ID,
     );
     const result = derivator.assembleSeed("0");
 
@@ -52,7 +52,7 @@ Deno.test("StellarDerivator", async (t) => {
     const derivator = createForAccount(
       TEST_NETWORK,
       TEST_CONTRACT_ID,
-      TEST_SECRET_KEY
+      TEST_SECRET_KEY,
     );
 
     const keypair1 = await derivator.deriveKeypair("42");
@@ -68,12 +68,12 @@ Deno.test("createForAccount", async (t) => {
     const derivator = createForAccount(
       TEST_NETWORK,
       TEST_CONTRACT_ID,
-      TEST_SECRET_KEY
+      TEST_SECRET_KEY,
     );
 
     const expectedContext = assembleNetworkContext(
       TEST_NETWORK,
-      TEST_CONTRACT_ID
+      TEST_CONTRACT_ID,
     );
     const result = derivator.assembleSeed("0");
 
@@ -86,7 +86,7 @@ Deno.test("createForAccount", async (t) => {
     const accountDerivator = createForAccount(
       TEST_NETWORK,
       TEST_CONTRACT_ID,
-      TEST_SECRET_KEY
+      TEST_SECRET_KEY,
     );
 
     // Manual configuration

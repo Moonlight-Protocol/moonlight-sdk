@@ -12,7 +12,7 @@ export function createTxInvocation(
   options?: {
     fee?: string;
     timeout?: number;
-  }
+  },
 ): TransactionInvocation {
   return {
     header: {

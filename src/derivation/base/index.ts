@@ -1,5 +1,6 @@
+import { assert } from "../../utils/assert/index.ts";
 import { deriveP256KeyPairFromSeed } from "../../utils/secp256r1/deriveP256KeyPairFromSeed.ts";
-
+import * as E from "../error.ts";
 /**
  * Generates a plain text seed by concatenating context, root, and index
  * @param context - The context where the seed will be used (e.g., network identifier)
@@ -10,7 +11,7 @@ import { deriveP256KeyPairFromSeed } from "../../utils/secp256r1/deriveP256KeyPa
 export function generatePlainTextSeed<
   C extends string,
   R extends string,
-  I extends string
+  I extends string,
 >(context: C, root: R, index: I): `${C}${R}${I}` {
   return `${context}${root}${index}`;
 }
@@ -21,7 +22,7 @@ export function generatePlainTextSeed<
  * @returns Hashed seed as Uint8Array
  */
 export async function hashSeed<Seed extends string>(
-  plainTextSeed: Seed
+  plainTextSeed: Seed,
 ): Promise<Uint8Array> {
   const encoder = new TextEncoder();
   const dataUint8 = encoder.encode(plainTextSeed);
@@ -40,10 +41,74 @@ export async function hashSeed<Seed extends string>(
 export class BaseDerivator<
   Context extends string = string,
   Root extends string = string,
-  Index extends string = string
+  Index extends string = string,
 > {
   protected _context?: Context;
   protected _root?: Root;
+
+  //==========================================
+  // Meta Requirement Methods
+  //==========================================
+
+  private requireNo(arg: "context" | "root"): void {
+    assert(
+      this[`_${arg}`] === undefined,
+      new E.PROPERTY_ALREADY_SET(arg, this[`_${arg}`] as string),
+    );
+  }
+
+  private requireNoContext(): void {
+    this.requireNo("context");
+  }
+
+  private requireNoRoot(): void {
+    this.requireNo("root");
+  }
+
+  /**
+   * Internal helper method to safely retrieve required properties.
+   * Uses method overloading to provide type-safe access to private fields.
+   *
+   * @param arg - The name of the property to retrieve
+   * @returns The value of the requested property
+   * @throws {Error} If the requested property is not set
+   * @private
+   */
+  private require(arg: "context"): Context;
+  private require(arg: "root"): Root;
+  private require(arg: "context" | "root"): Context | Root {
+    if (this[`_${arg}`]) return this[`_${arg}`] as Context | Root;
+    throw new E.PROPERTY_NOT_SET(arg);
+  }
+
+  //==========================================
+  // Getter Methods
+  //==========================================
+
+  /**
+   * Returns the derivation context (e.g., network identifier)
+   *
+   * @returns The derivation context
+   * @throws {Error} If the context is not set (should never happen with factory methods)
+   *
+   * @example
+   * ```typescript
+   * const context = derivator.getContext();
+   * ```
+   */
+  public getContext(): Context {
+    return this.require("context");
+  }
+
+  private getRoot(): Root {
+    return this.require("root");
+  }
+
+  public isSet(arg: "context" | "root"): boolean {
+    return this[`_${arg}`] !== undefined;
+  }
+
+  //========
 
   /**
    * Sets the derivation context for this derivator
@@ -57,9 +122,8 @@ export class BaseDerivator<
    * ```
    */
   withContext(context: Context): this {
-    if (this._context !== undefined) {
-      throw Error("Context has already been set");
-    }
+    this.requireNoContext();
+
     this._context = context;
     return this;
   }
@@ -76,9 +140,8 @@ export class BaseDerivator<
    * ```
    */
   withRoot(root: Root): this {
-    if (this._root !== undefined) {
-      throw Error("Root has already been set");
-    }
+    this.requireNoRoot();
+
     this._root = root;
     return this;
   }
@@ -97,13 +160,10 @@ export class BaseDerivator<
    * ```
    */
   assembleSeed(index: Index): `${Context}${Root}${Index}` {
-    this.assertConfigured();
-
-    return generatePlainTextSeed(this._context!, this._root!, index);
+    return generatePlainTextSeed(this.getContext(), this.getRoot(), index);
   }
 
   /**
-   *
    *  Hashes a plaintext seed using SHA-256
    * @param index - The index to derive at
    * @returns A hashed seed as Uint8Array
@@ -114,8 +174,6 @@ export class BaseDerivator<
    * ```
    */
   async hashSeed(index: Index): Promise<Uint8Array> {
-    this.assertConfigured();
-
     const seed = this.assembleSeed(index);
     return await hashSeed(seed);
   }
@@ -136,30 +194,11 @@ export class BaseDerivator<
    * ```
    */
   async deriveKeypair(
-    index: Index
+    index: Index,
   ): Promise<{ publicKey: Uint8Array; privateKey: Uint8Array }> {
-    this.assertConfigured();
-
     const seed = this.assembleSeed(index);
     const hashedSeed = await hashSeed(seed);
     return deriveP256KeyPairFromSeed(hashedSeed);
-  }
-
-  /**
-   * Gets the current context value
-   *
-   * @returns The current context or undefined if not set
-   *
-   * @example
-   * ```typescript
-   * const context = derivator.getContext();
-   * ```
-   */
-  getContext(): Context {
-    if (this._context === undefined) {
-      throw Error("Context is required but has not been set");
-    }
-    return this._context;
   }
 
   /**
@@ -175,19 +214,6 @@ export class BaseDerivator<
    * ```
    */
   isConfigured(): boolean {
-    return !!this._context && !!this._root;
-  }
-
-  /**
-   * Checks if the derivator is fully configured and throws an error if not
-   *
-   * @throws Error if the derivator is not properly configured
-   */
-  assertConfigured(): void {
-    if (!this.isConfigured()) {
-      throw new Error(
-        "Derivator is not properly configured: missing context or root"
-      );
-    }
+    return this.isSet("context") && this.isSet("root");
   }
 }

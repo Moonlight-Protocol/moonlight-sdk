@@ -4,7 +4,7 @@
 export type PlainDerivationSeed<
   C extends string,
   R extends string,
-  I extends string
+  I extends string,
 > = `${C}${R}${I}`;
 
 /**
@@ -23,7 +23,7 @@ export type SequenceIndex = `${number}`;
 export interface DerivationComponents<
   C extends string,
   R extends string,
-  I extends string
+  I extends string,
 > {
   context: C;
   root: R;
@@ -36,7 +36,7 @@ export interface DerivationComponents<
 export interface DerivationSeedParams<
   C extends string,
   R extends string,
-  I extends string
+  I extends string,
 > {
   context: C;
   root: R;

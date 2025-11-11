@@ -1,7 +1,7 @@
 import type {
   StellarDerivationContext,
-  StellarDerivationRoot,
   StellarDerivationIndex,
+  StellarDerivationRoot,
   StellarNetworkContext,
 } from "./types.ts";
 import { BaseDerivator } from "../base/index.ts";
@@ -16,7 +16,7 @@ import type { ContractId, Ed25519SecretKey } from "@colibri/core";
  */
 export function assembleNetworkContext(
   network: StellarNetworkId,
-  contractId: ContractId
+  contractId: ContractId,
 ): StellarNetworkContext {
   return `${network}${contractId}`;
 }
@@ -38,7 +38,7 @@ export class StellarDerivator extends BaseDerivator<
    */
   withNetworkAndContract(
     network: StellarNetworkId,
-    contractId: ContractId
+    contractId: ContractId,
   ): this {
     const context = assembleNetworkContext(network, contractId);
     return this.withContext(context);
@@ -64,7 +64,7 @@ export class StellarDerivator extends BaseDerivator<
 export function createForAccount(
   networkId: StellarNetworkId,
   contractId: ContractId,
-  secretKey: Ed25519SecretKey
+  secretKey: Ed25519SecretKey,
 ): StellarDerivator {
   return new StellarDerivator()
     .withNetworkAndContract(networkId, contractId)

@@ -4,7 +4,7 @@ import type { xdr } from "@stellar/stellar-sdk";
 import type { UTXOOperationType } from "../operation/types.ts";
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 
-export type BaseCondition = {
+export interface BaseCondition {
   getOperation(): UTXOOperationType;
   getAmount(): bigint;
   isCreate(): this is CreateCondition;
@@ -12,7 +12,8 @@ export type BaseCondition = {
   isWithdraw(): this is WithdrawCondition;
   toXDR(): string;
   toScVal(): xdr.ScVal;
-};
+  toMLXDR(): string;
+}
 
 export type CreateCondition = BaseCondition & {
   getOperation(): UTXOOperationType.CREATE;

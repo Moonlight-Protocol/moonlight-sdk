@@ -14,7 +14,7 @@ import { encodePKCS8 } from "./encodePKCS8.ts";
  * @returns An object with publicKey and privateKey as Uint8Array.
  */
 export async function deriveP256KeyPairFromSeed(
-  seed: Uint8Array
+  seed: Uint8Array,
 ): Promise<{ publicKey: Uint8Array; privateKey: Uint8Array }> {
   // Expand the seed to 48 bytes to eliminate bias (per FIPS 186-5 / RFC 9380)
   const info = "application"; // adjust as needed
