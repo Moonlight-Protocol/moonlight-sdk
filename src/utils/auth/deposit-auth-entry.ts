@@ -1,7 +1,7 @@
 import type { xdr } from "@stellar/stellar-sdk";
 import { xdr as xdrHelper } from "@colibri/core";
 
-export const generateDepositAuthEntry = ({
+export const buildDepositAuthEntry = ({
   channelId,
   assetId,
   depositor,

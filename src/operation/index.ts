@@ -34,7 +34,7 @@ import * as E from "./error.ts";
 import { assert } from "../utils/assert/assert.ts";
 import { buildAuthPayloadHash } from "../utils/auth/build-auth-payload.ts";
 import { generateNonce } from "../utils/common/index.ts";
-import { buildDepositAuthEntry } from "../utils/auth/deposit-auth-entry copy.ts";
+import { buildDepositAuthEntry } from "../utils/auth/deposit-auth-entry.ts";
 import { MLXDR } from "../custom-xdr/index.ts";
 
 export class MoonlightOperation implements BaseOperation {
