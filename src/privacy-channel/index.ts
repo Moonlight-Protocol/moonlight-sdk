@@ -18,7 +18,7 @@ import type {
 } from "./types.ts";
 import type { xdr } from "@stellar/stellar-sdk";
 import * as E from "./error.ts";
-import type { UTXOPublicKey } from "@moonlight/moonlight-sdk";
+import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 import { Buffer } from "buffer";
 import { MoonlightTransactionBuilder } from "../transaction-builder/index.ts";
 import { UtxoBasedStellarAccount } from "../utxo-based-account/utxo-based-stellar-account/index.ts";
@@ -192,7 +192,7 @@ export class PrivacyChannel {
    * @param {GetUTXOAccountHandlerArgs} args  - The arguments for creating the UTXO account handler.
    * @param {Ed25519SecretKey} args.root - The root secret key for the Stellar account.
    * @param {Object} [args.options] - Additional options for the UTXO account handler.
-   * @returns
+   * @returns {UtxoBasedStellarAccount} A handler for UTXO-based Stellar accounts, pre-configured for this privacy channel. Use this to manage UTXO-based operations for the associated Stellar account.
    */
   public getUTXOAccountHandler(
     args: GetUTXOAccountHandlerArgs,
