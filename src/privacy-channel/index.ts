@@ -8,12 +8,20 @@ import { StellarDerivator } from "../derivation/stellar/index.ts";
 import type { StellarNetworkId } from "../derivation/stellar/stellar-network-id.ts";
 import {
   type ChannelInvokeMethods,
-  type ChannelReadMethods,
+  ChannelReadMethods,
   ChannelSpec,
 } from "./constants.ts";
-import type { ChannelInvoke, ChannelRead } from "./types.ts";
+import type {
+  ChannelInvoke,
+  ChannelRead,
+  GetUTXOAccountHandlerArgs,
+} from "./types.ts";
 import type { xdr } from "@stellar/stellar-sdk";
 import * as E from "./error.ts";
+import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
+import { Buffer } from "buffer";
+import { MoonlightTransactionBuilder } from "../transaction-builder/index.ts";
+import { UtxoBasedStellarAccount } from "../utxo-based-account/utxo-based-stellar-account/index.ts";
 
 export class PrivacyChannel {
   private _client: Contract;
@@ -142,8 +150,73 @@ export class PrivacyChannel {
     return this.getClient().getContractId();
   }
 
+  /**
+   * Returns a function that fetches balances for given UTXO public keys.
+   *
+   * @returns {(publicKeys: Uint8Array[]) => Promise<bigint[]>}
+   */
+  public getBalancesFetcher(): (
+    publicKeys: UTXOPublicKey[],
+  ) => Promise<bigint[]> {
+    const fetchBalances = (publicKeys: UTXOPublicKey[]) => {
+      return this.read({
+        method: ChannelReadMethods.utxo_balances,
+        methodArgs: { utxos: publicKeys.map((pk) => Buffer.from(pk)) },
+      });
+    };
+
+    return fetchBalances;
+  }
+
+  /**
+   *  Creates and returns a MoonlightTransactionBuilder instance
+   *  pre-configured for this privacy channel.
+   *
+   * @returns {MoonlightTransactionBuilder} A pre-configured MoonlightTransactionBuilder instance.
+   */
+  public getTransactionBuilder(): MoonlightTransactionBuilder {
+    const txBuilder = new MoonlightTransactionBuilder({
+      channelId: this.getChannelId(),
+      authId: this.getAuthId(),
+      network: this.getNetworkConfig().networkPassphrase,
+      assetId: this.getAssetId(),
+    });
+
+    return txBuilder;
+  }
+
+  /**
+   *  Creates and returns a UtxoBasedStellarAccount handler
+   *  pre-configured for this privacy channel.
+   *
+   * @param {GetUTXOAccountHandlerArgs} args  - The arguments for creating the UTXO account handler.
+   * @param {Ed25519SecretKey} args.root - The root secret key for the Stellar account.
+   * @param {Object} [args.options] - Additional options for the UTXO account handler.
+   * @returns {UtxoBasedStellarAccount} A handler for UTXO-based Stellar accounts, pre-configured for this privacy channel. Use this to manage UTXO-based operations for the associated Stellar account.
+   */
+  public getUTXOAccountHandler(
+    args: GetUTXOAccountHandlerArgs,
+  ): UtxoBasedStellarAccount {
+    const { root, options } = args;
+
+    const derivator = new StellarDerivator().withNetworkAndContract(
+      this.getNetworkConfig().networkPassphrase as StellarNetworkId,
+      this.getChannelId() as ContractId,
+    );
+    const accountHandler = new UtxoBasedStellarAccount({
+      derivator,
+      root,
+      options: {
+        ...options,
+        fetchBalances: this.getBalancesFetcher(),
+      },
+    });
+
+    return accountHandler;
+  }
+
   //==========================================
-  // Read / Write Methods
+  // Contract Read / Write Methods
   //==========================================
   //
   //

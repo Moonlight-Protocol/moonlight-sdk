@@ -1,6 +1,11 @@
-import type { ContractId, Ed25519PublicKey } from "@colibri/core";
+import type {
+  ContractId,
+  Ed25519PublicKey,
+  Ed25519SecretKey,
+} from "@colibri/core";
 import type { Buffer } from "node:buffer";
 import type { ChannelInvokeMethods, ChannelReadMethods } from "./constants.ts";
+import type { UTXOBasedAccountConstructorArgs } from "../utxo-based-account/types.ts";
 
 export type ChannelConstructorArgs = {
   admin: Ed25519PublicKey | ContractId;
@@ -73,3 +78,19 @@ export type ChannelInvoke = {
     output: None;
   };
 };
+
+export type GetUTXOAccountHandlerArgs =
+  & Pick<
+    UTXOBasedAccountConstructorArgs<string, Ed25519SecretKey, `${number}`>,
+    "root"
+  >
+  & {
+    options?: Omit<
+      UTXOBasedAccountConstructorArgs<
+        string,
+        Ed25519SecretKey,
+        `${number}`
+      >["options"],
+      "fetchBalances"
+    >;
+  };
