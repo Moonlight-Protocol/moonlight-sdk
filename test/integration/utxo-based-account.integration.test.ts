@@ -187,14 +187,7 @@ describe(
           root: testRoot,
           options: {
             batchSize: 10,
-            fetchBalances: async (publicKeys: Uint8Array[]) => {
-              return channelClient.read({
-                method: ChannelReadMethods.utxo_balances,
-                methodArgs: {
-                  utxos: publicKeys.map((pk) => Buffer.from(pk)),
-                },
-              });
-            },
+            fetchBalances: channelClient.getBalancesFetcher(),
           },
         });
 
@@ -254,25 +247,11 @@ describe(
         const testRoot = "S-TEST_SECRET_ROOT_3";
         const depositAmount = 500000n; // 0.05 XLM
 
-        // Create a fresh derivator for this test
-        const freshDerivator = new StellarDerivator().withNetworkAndContract(
-          StellarNetworkId.Testnet,
-          channelId,
-        );
-
-        const utxoAccount = new UtxoBasedStellarAccount({
-          derivator: freshDerivator,
+        const utxoAccount = UtxoBasedStellarAccount.fromPrivacyChannel({
+          channelClient,
           root: testRoot,
           options: {
             batchSize: 10,
-            fetchBalances: async (publicKeys: Uint8Array[]) => {
-              return channelClient.read({
-                method: ChannelReadMethods.utxo_balances,
-                methodArgs: {
-                  utxos: publicKeys.map((pk) => Buffer.from(pk)),
-                },
-              });
-            },
           },
         });
 

@@ -39,6 +39,7 @@ import type {
 import * as E from "./error.ts";
 import { assert } from "../utils/assert/assert.ts";
 import { assertExtOpsExist } from "./validators/operations.ts";
+import type { PrivacyChannel } from "../privacy-channel/index.ts";
 
 export class MoonlightTransactionBuilder {
   private _create: CreateOperation[] = [];
@@ -73,6 +74,22 @@ export class MoonlightTransactionBuilder {
     this._authId = authId;
     this._assetId = assetId;
     this._network = network;
+  }
+
+  /**
+   *  Creates a MoonlightTransactionBuilder instance from an existing PrivacyChannel.
+   * @param channelClient - The PrivacyChannel instance to use.
+   * @returns  {MoonlightTransactionBuilder} A MoonlightTransactionBuilder instance pre-configured with the PrivacyChannel's parameters.
+   */
+  static fromPrivacyChannel(
+    channelClient: PrivacyChannel,
+  ): MoonlightTransactionBuilder {
+    return new MoonlightTransactionBuilder({
+      channelId: channelClient.getChannelId(),
+      authId: channelClient.getAuthId(),
+      network: channelClient.getNetworkConfig().networkPassphrase,
+      assetId: channelClient.getAssetId(),
+    });
   }
 
   //==========================================

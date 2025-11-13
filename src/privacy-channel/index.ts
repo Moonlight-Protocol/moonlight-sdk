@@ -11,24 +11,17 @@ import {
   ChannelReadMethods,
   ChannelSpec,
 } from "./constants.ts";
-import type {
-  ChannelInvoke,
-  ChannelRead,
-  GetUTXOAccountHandlerArgs,
-} from "./types.ts";
+import type { ChannelInvoke, ChannelRead } from "./types.ts";
 import type { xdr } from "@stellar/stellar-sdk";
 import * as E from "./error.ts";
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 import { Buffer } from "buffer";
-import { MoonlightTransactionBuilder } from "../transaction-builder/index.ts";
-import { UtxoBasedStellarAccount } from "../utxo-based-account/utxo-based-stellar-account/index.ts";
 
 export class PrivacyChannel {
   private _client: Contract;
   private _authId: ContractId;
   private _assetId: ContractId;
   private _networkConfig: NetworkConfig;
-  private _derivator: StellarDerivator;
 
   public constructor(
     networkConfig: NetworkConfig,
@@ -46,11 +39,6 @@ export class PrivacyChannel {
     this._authId = authId;
 
     this._assetId = assetId;
-
-    this._derivator = new StellarDerivator().withNetworkAndContract(
-      networkConfig.networkPassphrase as StellarNetworkId,
-      channelId as ContractId,
-    );
   }
 
   //==========================================
@@ -69,11 +57,10 @@ export class PrivacyChannel {
   private require(arg: "_client"): Contract;
   private require(arg: "_authId"): ContractId;
   private require(arg: "_networkConfig"): NetworkConfig;
-  private require(arg: "_derivator"): StellarDerivator;
   private require(arg: "_assetId"): ContractId;
   private require(
-    arg: "_client" | "_authId" | "_networkConfig" | "_derivator" | "_assetId",
-  ): Contract | ContractId | NetworkConfig | StellarDerivator {
+    arg: "_client" | "_authId" | "_networkConfig" | "_assetId",
+  ): Contract | ContractId | NetworkConfig {
     if (this[arg]) return this[arg];
     throw new E.PROPERTY_NOT_SET(arg);
   }
@@ -133,10 +120,13 @@ export class PrivacyChannel {
    *
    * @params None
    * @returns {StellarDerivator} The StellarDerivator instance.
-   * @throws {Error} If the StellarDerivator instance is not set.
+   * @throws {Error} If any of the underlying properties are not set.
    */
   public getDerivator(): StellarDerivator {
-    return this.require("_derivator");
+    return new StellarDerivator().withNetworkAndContract(
+      this.getNetworkConfig().networkPassphrase as StellarNetworkId,
+      this.getChannelId() as ContractId,
+    );
   }
 
   /**
@@ -158,61 +148,16 @@ export class PrivacyChannel {
   public getBalancesFetcher(): (
     publicKeys: UTXOPublicKey[],
   ) => Promise<bigint[]> {
-    const fetchBalances = (publicKeys: UTXOPublicKey[]) => {
-      return this.read({
+    const fetchBalances = async (
+      publicKeys: UTXOPublicKey[],
+    ): Promise<bigint[]> => {
+      return await this.read({
         method: ChannelReadMethods.utxo_balances,
         methodArgs: { utxos: publicKeys.map((pk) => Buffer.from(pk)) },
       });
     };
 
     return fetchBalances;
-  }
-
-  /**
-   *  Creates and returns a MoonlightTransactionBuilder instance
-   *  pre-configured for this privacy channel.
-   *
-   * @returns {MoonlightTransactionBuilder} A pre-configured MoonlightTransactionBuilder instance.
-   */
-  public getTransactionBuilder(): MoonlightTransactionBuilder {
-    const txBuilder = new MoonlightTransactionBuilder({
-      channelId: this.getChannelId(),
-      authId: this.getAuthId(),
-      network: this.getNetworkConfig().networkPassphrase,
-      assetId: this.getAssetId(),
-    });
-
-    return txBuilder;
-  }
-
-  /**
-   *  Creates and returns a UtxoBasedStellarAccount handler
-   *  pre-configured for this privacy channel.
-   *
-   * @param {GetUTXOAccountHandlerArgs} args  - The arguments for creating the UTXO account handler.
-   * @param {Ed25519SecretKey} args.root - The root secret key for the Stellar account.
-   * @param {Object} [args.options] - Additional options for the UTXO account handler.
-   * @returns {UtxoBasedStellarAccount} A handler for UTXO-based Stellar accounts, pre-configured for this privacy channel. Use this to manage UTXO-based operations for the associated Stellar account.
-   */
-  public getUTXOAccountHandler(
-    args: GetUTXOAccountHandlerArgs,
-  ): UtxoBasedStellarAccount {
-    const { root, options } = args;
-
-    const derivator = new StellarDerivator().withNetworkAndContract(
-      this.getNetworkConfig().networkPassphrase as StellarNetworkId,
-      this.getChannelId() as ContractId,
-    );
-    const accountHandler = new UtxoBasedStellarAccount({
-      derivator,
-      root,
-      options: {
-        ...options,
-        fetchBalances: this.getBalancesFetcher(),
-      },
-    });
-
-    return accountHandler;
   }
 
   //==========================================
