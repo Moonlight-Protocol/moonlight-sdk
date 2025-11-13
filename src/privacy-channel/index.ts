@@ -8,19 +8,20 @@ import { StellarDerivator } from "../derivation/stellar/index.ts";
 import type { StellarNetworkId } from "../derivation/stellar/stellar-network-id.ts";
 import {
   type ChannelInvokeMethods,
-  type ChannelReadMethods,
+  ChannelReadMethods,
   ChannelSpec,
 } from "./constants.ts";
 import type { ChannelInvoke, ChannelRead } from "./types.ts";
 import type { xdr } from "@stellar/stellar-sdk";
 import * as E from "./error.ts";
+import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
+import { Buffer } from "buffer";
 
 export class PrivacyChannel {
   private _client: Contract;
   private _authId: ContractId;
   private _assetId: ContractId;
   private _networkConfig: NetworkConfig;
-  private _derivator: StellarDerivator;
 
   public constructor(
     networkConfig: NetworkConfig,
@@ -38,11 +39,6 @@ export class PrivacyChannel {
     this._authId = authId;
 
     this._assetId = assetId;
-
-    this._derivator = new StellarDerivator().withNetworkAndContract(
-      networkConfig.networkPassphrase as StellarNetworkId,
-      channelId as ContractId,
-    );
   }
 
   //==========================================
@@ -61,11 +57,10 @@ export class PrivacyChannel {
   private require(arg: "_client"): Contract;
   private require(arg: "_authId"): ContractId;
   private require(arg: "_networkConfig"): NetworkConfig;
-  private require(arg: "_derivator"): StellarDerivator;
   private require(arg: "_assetId"): ContractId;
   private require(
-    arg: "_client" | "_authId" | "_networkConfig" | "_derivator" | "_assetId",
-  ): Contract | ContractId | NetworkConfig | StellarDerivator {
+    arg: "_client" | "_authId" | "_networkConfig" | "_assetId",
+  ): Contract | ContractId | NetworkConfig {
     if (this[arg]) return this[arg];
     throw new E.PROPERTY_NOT_SET(arg);
   }
@@ -125,10 +120,13 @@ export class PrivacyChannel {
    *
    * @params None
    * @returns {StellarDerivator} The StellarDerivator instance.
-   * @throws {Error} If the StellarDerivator instance is not set.
+   * @throws {Error} If any of the underlying properties are not set.
    */
   public getDerivator(): StellarDerivator {
-    return this.require("_derivator");
+    return new StellarDerivator().withNetworkAndContract(
+      this.getNetworkConfig().networkPassphrase as StellarNetworkId,
+      this.getChannelId() as ContractId,
+    );
   }
 
   /**
@@ -142,8 +140,28 @@ export class PrivacyChannel {
     return this.getClient().getContractId();
   }
 
+  /**
+   * Returns a function that fetches balances for given UTXO public keys.
+   *
+   * @returns {(publicKeys: Uint8Array[]) => Promise<bigint[]>}
+   */
+  public getBalancesFetcher(): (
+    publicKeys: UTXOPublicKey[],
+  ) => Promise<bigint[]> {
+    const fetchBalances = async (
+      publicKeys: UTXOPublicKey[],
+    ): Promise<bigint[]> => {
+      return await this.read({
+        method: ChannelReadMethods.utxo_balances,
+        methodArgs: { utxos: publicKeys.map((pk) => Buffer.from(pk)) },
+      });
+    };
+
+    return fetchBalances;
+  }
+
   //==========================================
-  // Read / Write Methods
+  // Contract Read / Write Methods
   //==========================================
   //
   //
