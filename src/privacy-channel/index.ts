@@ -1,6 +1,7 @@
 import {
   Contract,
   type ContractId,
+  Ed25519SecretKey,
   type NetworkConfig,
   type TransactionConfig,
 } from "@colibri/core";
@@ -11,12 +12,17 @@ import {
   ChannelReadMethods,
   ChannelSpec,
 } from "./constants.ts";
-import type { ChannelInvoke, ChannelRead } from "./types.ts";
+import type {
+  ChannelInvoke,
+  ChannelRead,
+  GetUTXOAccountHandlerArgs,
+} from "./types.ts";
 import type { xdr } from "@stellar/stellar-sdk";
 import * as E from "./error.ts";
 import type { UTXOPublicKey } from "@moonlight/moonlight-sdk";
 import { Buffer } from "buffer";
 import { MoonlightTransactionBuilder } from "../transaction-builder/index.ts";
+import { UtxoBasedStellarAccount } from "../utxo-based-account/utxo-based-stellar-account/index.ts";
 
 export class PrivacyChannel {
   private _client: Contract;
@@ -176,6 +182,34 @@ export class PrivacyChannel {
     });
 
     return txBuilder;
+  }
+
+  /**
+   *  Creates and returns a UtxoBasedStellarAccount handler
+   *  pre-configured for this privacy channel.
+   *
+   * @param {GetUTXOAccountHandlerArgs} args  - The arguments for creating the UTXO account handler.
+   * @param {Ed25519SecretKey} args.root - The root secret key for the Stellar account.
+   * @param {Object} [args.options] - Additional options for the UTXO account handler.
+   * @returns
+   */
+  public getUTXOAccountHandler(args: GetUTXOAccountHandlerArgs) {
+    const { root, options } = args;
+
+    const derivator = new StellarDerivator().withNetworkAndContract(
+      this.getNetworkConfig().networkPassphrase as StellarNetworkId,
+      this.getChannelId() as ContractId,
+    );
+    const accountHandler = new UtxoBasedStellarAccount({
+      derivator,
+      root,
+      options: {
+        ...options,
+        fetchBalances: this.getBalancesFetcher(),
+      },
+    });
+
+    return accountHandler;
   }
 
   //==========================================

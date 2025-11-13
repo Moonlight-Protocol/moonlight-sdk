@@ -2,7 +2,10 @@ import { UTXOKeypair } from "../core/utxo-keypair/index.ts";
 import { UTXOStatus } from "../core/utxo-keypair/types.ts";
 import type { BaseDerivator } from "../derivation/base/index.ts";
 import { UTXOSelectionStrategy } from "./selection-strategy.ts";
-import type { UTXOSelectionResult } from "./types.ts";
+import type {
+  UTXOBasedAccountContructorArgs,
+  UTXOSelectionResult,
+} from "./types.ts";
 import * as E from "./error.ts";
 import { assert } from "../utils/assert/assert.ts";
 /**
@@ -46,16 +49,7 @@ export class UtxoBasedAccount<
   /**
    * Creates a new UtxoBasedAccount instance
    */
-  constructor(args: {
-    derivator: BaseDerivator<Context, Root, Index>;
-    root: Root;
-    options?: {
-      batchSize?: number;
-      fetchBalances?: (publicKeys: Uint8Array[]) => Promise<bigint[]>;
-      startIndex?: number;
-      maxReservationAgeMs?: number;
-    };
-  }) {
+  constructor(args: UTXOBasedAccountContructorArgs<Context, Root, Index>) {
     this.root = args.root;
     this.derivator = args.derivator;
     this.derivator.withRoot(this.root);
