@@ -31,7 +31,6 @@ import {
   generateNonce,
   generateP256KeyPair,
   MoonlightOperation as op,
-  MoonlightTransactionBuilder,
   PrivacyChannel,
 } from "../../mod.ts";
 
@@ -39,6 +38,7 @@ import { Asset, Keypair } from "@stellar/stellar-sdk";
 
 import { disableSanitizeConfig } from "../utils/disable-sanitize-config.ts";
 import { Server } from "@stellar/stellar-sdk/rpc";
+import { MoonlightTransactionBuilder } from "../../src/transaction-builder/index.ts";
 
 describe(
   "[Testnet - Integration] PrivacyChannel",
@@ -232,14 +232,9 @@ describe(
         const utxoAKeypair = await generateP256KeyPair();
         const utxoBKeypair = await generateP256KeyPair();
 
-        const depositTx = new MoonlightTransactionBuilder({
-          network: networkConfig.networkPassphrase,
-          channelId: channelId,
-          authId: authId,
-          assetId: Asset.native().contractId(
-            networkConfig.networkPassphrase,
-          ) as ContractId,
-        });
+        const depositTx = MoonlightTransactionBuilder.fromPrivacyChannel(
+          channelClient,
+        );
 
         const createOpA = op.create(utxoAKeypair.publicKey, 250n);
         const createOpB = op.create(utxoBKeypair.publicKey, 250n);
