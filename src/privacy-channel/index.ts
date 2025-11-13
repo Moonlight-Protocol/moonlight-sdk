@@ -165,7 +165,7 @@ export class PrivacyChannel {
    *  Creates and returns a MoonlightTransactionBuilder instance
    *  pre-configured for this privacy channel.
    *
-   * @returns  {MoonlightTransactionBuilder} A pre-configured MoonlightTransactionBuilder instance.
+   * @returns {MoonlightTransactionBuilder} A pre-configured MoonlightTransactionBuilder instance.
    */
   public getTransactionBuilder() {
     const txBuilder = new MoonlightTransactionBuilder({
