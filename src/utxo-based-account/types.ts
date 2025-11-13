@@ -1,5 +1,5 @@
 import type { UTXOKeypair } from "../core/utxo-keypair/index.ts";
-import { BaseDerivator } from "../derivation/base/index.ts";
+import type { BaseDerivator } from "../derivation/base/index.ts";
 
 /**
  * Result of UTXO selection for transfers

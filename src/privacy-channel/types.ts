@@ -5,7 +5,7 @@ import type {
 } from "@colibri/core";
 import type { Buffer } from "node:buffer";
 import type { ChannelInvokeMethods, ChannelReadMethods } from "./constants.ts";
-import { UTXOBasedAccountContructorArgs } from "../utxo-based-account/types.ts";
+import type { UTXOBasedAccountContructorArgs } from "../utxo-based-account/types.ts";
 
 export type ChannelConstructorArgs = {
   admin: Ed25519PublicKey | ContractId;

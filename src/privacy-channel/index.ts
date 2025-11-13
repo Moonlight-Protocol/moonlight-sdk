@@ -1,7 +1,6 @@
 import {
   Contract,
   type ContractId,
-  Ed25519SecretKey,
   type NetworkConfig,
   type TransactionConfig,
 } from "@colibri/core";
@@ -154,9 +153,11 @@ export class PrivacyChannel {
   /**
    * Returns a function that fetches balances for given UTXO public keys.
    *
-   * @returns {(publicKeys: UTXOPublicKey[]) => Promise<Map<UTXOPublicKey, bigint>>}
+   * @returns {(publicKeys: Uint8Array[]) => Promise<bigint[]>}
    */
-  public getBalancesFetcher() {
+  public getBalancesFetcher(): (
+    publicKeys: UTXOPublicKey[],
+  ) => Promise<bigint[]> {
     const fetchBalances = (publicKeys: UTXOPublicKey[]) => {
       return this.read({
         method: ChannelReadMethods.utxo_balances,
@@ -173,7 +174,7 @@ export class PrivacyChannel {
    *
    * @returns {MoonlightTransactionBuilder} A pre-configured MoonlightTransactionBuilder instance.
    */
-  public getTransactionBuilder() {
+  public getTransactionBuilder(): MoonlightTransactionBuilder {
     const txBuilder = new MoonlightTransactionBuilder({
       channelId: this.getChannelId(),
       authId: this.getAuthId(),
@@ -193,7 +194,9 @@ export class PrivacyChannel {
    * @param {Object} [args.options] - Additional options for the UTXO account handler.
    * @returns
    */
-  public getUTXOAccountHandler(args: GetUTXOAccountHandlerArgs) {
+  public getUTXOAccountHandler(
+    args: GetUTXOAccountHandlerArgs,
+  ): UtxoBasedStellarAccount {
     const { root, options } = args;
 
     const derivator = new StellarDerivator().withNetworkAndContract(
