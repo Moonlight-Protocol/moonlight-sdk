@@ -10,7 +10,7 @@ export interface UTXOSelectionResult<Context extends string> {
   changeAmount: bigint;
 }
 
-export type UTXOBasedAccountContructorArgs<
+export type UTXOBasedAccountConstructorArgs<
   Context extends string,
   Root extends string,
   Index extends `${number}`,

@@ -3,7 +3,7 @@ import { UTXOStatus } from "../core/utxo-keypair/types.ts";
 import type { BaseDerivator } from "../derivation/base/index.ts";
 import { UTXOSelectionStrategy } from "./selection-strategy.ts";
 import type {
-  UTXOBasedAccountContructorArgs,
+  UTXOBasedAccountConstructorArgs,
   UTXOSelectionResult,
 } from "./types.ts";
 import * as E from "./error.ts";
@@ -49,7 +49,7 @@ export class UtxoBasedAccount<
   /**
    * Creates a new UtxoBasedAccount instance
    */
-  constructor(args: UTXOBasedAccountContructorArgs<Context, Root, Index>) {
+  constructor(args: UTXOBasedAccountConstructorArgs<Context, Root, Index>) {
     this.root = args.root;
     this.derivator = args.derivator;
     this.derivator.withRoot(this.root);
