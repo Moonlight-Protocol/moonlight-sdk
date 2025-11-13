@@ -120,7 +120,7 @@ export class PrivacyChannel {
    *
    * @params None
    * @returns {StellarDerivator} The StellarDerivator instance.
-   * @throws {Error} If the any of the underlying properties are not set.
+   * @throws {Error} If any of the underlying properties are not set.
    */
   public getDerivator(): StellarDerivator {
     return new StellarDerivator().withNetworkAndContract(
