@@ -8,12 +8,14 @@ import { StellarDerivator } from "../derivation/stellar/index.ts";
 import type { StellarNetworkId } from "../derivation/stellar/stellar-network-id.ts";
 import {
   type ChannelInvokeMethods,
-  type ChannelReadMethods,
+  ChannelReadMethods,
   ChannelSpec,
 } from "./constants.ts";
 import type { ChannelInvoke, ChannelRead } from "./types.ts";
 import type { xdr } from "@stellar/stellar-sdk";
 import * as E from "./error.ts";
+import type { UTXOPublicKey } from "@moonlight/moonlight-sdk";
+import { Buffer } from "buffer";
 
 export class PrivacyChannel {
   private _client: Contract;
@@ -142,8 +144,24 @@ export class PrivacyChannel {
     return this.getClient().getContractId();
   }
 
+  /**
+   * Returns a function that fetches balances for given UTXO public keys.
+   *
+   * @returns {(publicKeys: UTXOPublicKey[]) => Promise<Map<UTXOPublicKey, bigint>>}
+   */
+  public getBalancesFetcher() {
+    const fetchBalances = (publicKeys: UTXOPublicKey[]) => {
+      return this.read({
+        method: ChannelReadMethods.utxo_balances,
+        methodArgs: { utxos: publicKeys.map((pk) => Buffer.from(pk)) },
+      });
+    };
+
+    return fetchBalances;
+  }
+
   //==========================================
-  // Read / Write Methods
+  // Contract Read / Write Methods
   //==========================================
   //
   //
