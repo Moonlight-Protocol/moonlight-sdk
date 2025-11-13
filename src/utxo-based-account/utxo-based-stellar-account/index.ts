@@ -38,6 +38,7 @@ export class UtxoBasedStellarAccount extends UtxoBasedAccount<
       derivator: channelClient.getDerivator(),
       root,
       options: {
+        ...(args.options ?? {}),
         fetchBalances: channelClient.getBalancesFetcher(),
       },
     });
