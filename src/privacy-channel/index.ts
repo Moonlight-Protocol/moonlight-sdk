@@ -16,6 +16,7 @@ import type { xdr } from "@stellar/stellar-sdk";
 import * as E from "./error.ts";
 import type { UTXOPublicKey } from "@moonlight/moonlight-sdk";
 import { Buffer } from "buffer";
+import { MoonlightTransactionBuilder } from "../transaction-builder/index.ts";
 
 export class PrivacyChannel {
   private _client: Contract;
@@ -158,6 +159,23 @@ export class PrivacyChannel {
     };
 
     return fetchBalances;
+  }
+
+  /**
+   *  Creates and returns a MoonlightTransactionBuilder instance
+   *  pre-configured for this privacy channel.
+   *
+   * @returns  {MoonlightTransactionBuilder} A pre-configured MoonlightTransactionBuilder instance.
+   */
+  public getTransactionBuilder() {
+    const txBuilder = new MoonlightTransactionBuilder({
+      channelId: this.getChannelId(),
+      authId: this.getAuthId(),
+      network: this.getNetworkConfig().networkPassphrase,
+      assetId: this.getAssetId(),
+    });
+
+    return txBuilder;
   }
 
   //==========================================
