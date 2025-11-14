@@ -16,7 +16,12 @@
 import { Buffer } from "buffer";
 import { MLXDRPrefix, MLXDRTypeByte } from "./types.ts";
 import type { Condition as ConditionType } from "../conditions/types.ts";
-import { nativeToScVal, scValToBigInt, xdr } from "@stellar/stellar-sdk";
+import {
+  nativeToScVal,
+  scValToBigInt,
+  scValToNative,
+  xdr,
+} from "@stellar/stellar-sdk";
 import { Condition } from "../conditions/index.ts";
 import {
   type MoonlightOperation as MoonlightOperationType,
@@ -37,6 +42,8 @@ const MLXDROperationBytes = [
   MLXDRTypeByte.DepositOperation,
   MLXDRTypeByte.WithdrawOperation,
 ];
+
+const MLXDROperationsBundleBytes = [MLXDRTypeByte.OperationsBundle];
 
 const MLXDRTransactionBundleBytes = [MLXDRTypeByte.TransactionBundle];
 
@@ -91,6 +98,13 @@ const isOperation = (data: string): boolean => {
 
   const prefixByte = typePrefix[0];
   return MLXDROperationBytes.includes(prefixByte);
+};
+
+const isOperationsBundle = (data: string): boolean => {
+  const typePrefix = getMLXDRTypePrefix(data);
+
+  const prefixByte = typePrefix[0];
+  return MLXDROperationsBundleBytes.includes(prefixByte);
 };
 
 const isTransactionBundle = (data: string): boolean => {
@@ -310,6 +324,52 @@ const MLXDRtoOperation = (data: string): MoonlightOperationType => {
   }
 };
 
+const operationsBundleToMLXDR = (
+  operations: MoonlightOperationType[],
+): string => {
+  if (operations.length === 0) {
+    throw new Error("Operations bundle cannot be empty");
+  }
+  const operationMLXDRArray = operations.map((op) => {
+    return xdr.ScVal.scvString(op.toMLXDR());
+  });
+  const typeByte: MLXDRTypeByte = MLXDRTypeByte.OperationsBundle;
+
+  const operationBundleXDR = xdr.ScVal.scvVec([
+    ...operationMLXDRArray,
+  ]).toXDR("base64");
+
+  return appendMLXDRPrefixToRawXDR(operationBundleXDR, typeByte);
+};
+
+const MLXDRtoOperationsBundle = (data: string): MoonlightOperationType[] => {
+  if (!isOperationsBundle(data)) {
+    throw new Error("Data is not a valid MLXDR Operations Bundle");
+  }
+
+  const buffer = Buffer.from(data, "base64");
+  const rawXDRBuffer = buffer.slice(3);
+  const rawXDRString = rawXDRBuffer.toString("base64");
+
+  const scVal = xdr.ScVal.fromXDR(rawXDRString, "base64");
+
+  const vec = scVal.vec();
+
+  if (vec === null) {
+    throw new Error("Invalid ScVal vector for operations bundle");
+  }
+
+  const operations: MoonlightOperationType[] = vec.map((opScVal) => {
+    if (opScVal.switch().name !== xdr.ScValType.scvString().name) {
+      throw new Error("Invalid ScVal type for operation in bundle");
+    }
+    const opMLXDR = scValToNative(opScVal) as string;
+    return MLXDRtoOperation(opMLXDR);
+  });
+
+  return operations;
+};
+
 /**
  * * MLXDR Module
  *
@@ -330,10 +390,13 @@ export const MLXDR = {
   is: isMLXDR,
   isCondition,
   isOperation,
+  isOperationsBundle,
   isTransactionBundle,
   getXDRType,
   fromCondition: conditionToMLXDR,
   toCondition: MLXDRtoCondition,
   fromOperation: operationToMLXDR,
   toOperation: MLXDRtoOperation,
+  fromOperationsBundle: operationsBundleToMLXDR,
+  toOperationsBundle: MLXDRtoOperationsBundle,
 };
