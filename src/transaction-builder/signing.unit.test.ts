@@ -2,25 +2,19 @@ import { assertExists } from "@std/assert/exists";
 import { assertEquals } from "@std/assert/equals";
 import { MoonlightTransactionBuilder } from "./index.ts";
 import { beforeAll, describe, it } from "@std/testing/bdd";
-import { ContractId, Ed25519PublicKey, LocalSigner } from "@colibri/core";
+import { type ContractId, LocalSigner } from "@colibri/core";
 import { Asset, Networks } from "@stellar/stellar-sdk";
 import { Condition } from "../conditions/index.ts";
 import { MoonlightOperation } from "../operation/index.ts";
 
 describe("MoonlightTransactionBuilder", () => {
-  let validPublicKey: Ed25519PublicKey;
-
   let validAmount: bigint;
   let channelId: ContractId;
   let authId: ContractId;
   let assetId: ContractId;
   let network: string;
-  let builder: MoonlightTransactionBuilder;
 
   beforeAll(() => {
-    validPublicKey = LocalSigner.generateRandom()
-      .publicKey() as Ed25519PublicKey;
-
     validAmount = 1000n;
     channelId =
       "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC" as ContractId;
@@ -28,13 +22,6 @@ describe("MoonlightTransactionBuilder", () => {
       "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA" as ContractId;
     network = Networks.TESTNET;
     assetId = Asset.native().contractId(network) as ContractId;
-
-    builder = new MoonlightTransactionBuilder({
-      channelId,
-      authId,
-      assetId,
-      network,
-    });
   });
 
   describe("Signing", () => {

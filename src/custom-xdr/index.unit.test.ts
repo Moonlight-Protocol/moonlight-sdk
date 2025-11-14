@@ -1,4 +1,4 @@
-import { assertEquals, assertExists, assertThrows } from "@std/assert";
+import { assertEquals, assertExists } from "@std/assert";
 import { beforeAll, describe, it } from "@std/testing/bdd";
 import {
   type ContractId,
@@ -9,15 +9,14 @@ import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 import { generateP256KeyPair } from "../utils/secp256r1/generateP256KeyPair.ts";
 
 import type { CreateCondition } from "../conditions/types.ts";
-import { Condition } from "../conditions/index.ts";
 import { Asset, Networks } from "@stellar/stellar-sdk";
 
 import {
-  CreateOperation,
-  DepositOperation,
-  SpendOperation,
+  type CreateOperation,
+  type DepositOperation,
+  type SpendOperation,
   UTXOOperationType,
-  WithdrawOperation,
+  type WithdrawOperation,
 } from "../operation/types.ts";
 import { MoonlightOperation } from "../operation/index.ts";
 import { UTXOKeypairBase } from "../core/utxo-keypair-base/index.ts";
