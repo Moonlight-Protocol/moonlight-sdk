@@ -327,6 +327,9 @@ const MLXDRtoOperation = (data: string): MoonlightOperationType => {
 const operationsBundleToMLXDR = (
   operations: MoonlightOperationType[],
 ): string => {
+  if (operations.length === 0) {
+    throw new Error("Operations bundle cannot be empty");
+  }
   const operationMLXDRArray = operations.map((op) => {
     return xdr.ScVal.scvString(op.toMLXDR());
   });

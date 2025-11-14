@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import { beforeAll, describe, it } from "@std/testing/bdd";
 import {
   type ContractId,
@@ -8,7 +8,6 @@ import {
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 import { generateP256KeyPair } from "../utils/secp256r1/generateP256KeyPair.ts";
 
-import type { CreateCondition } from "../conditions/types.ts";
 import { Asset, Networks } from "@stellar/stellar-sdk";
 
 import {
@@ -21,7 +20,6 @@ import {
 import { MoonlightOperation } from "../operation/index.ts";
 import { UTXOKeypairBase } from "../core/utxo-keypair-base/index.ts";
 import { MLXDR } from "./index.ts";
-import { assert } from "node:console";
 
 describe("MLXDR", () => {
   let validPublicKey: Ed25519PublicKey;
