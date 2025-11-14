@@ -204,7 +204,7 @@ describe("MLXDR", () => {
       assertEquals(recreatedOps[0].getAmount(), 1000n);
       assert(recreatedOps[0].isCreate());
       assertEquals(
-        (recreatedOps[0] as CreateCondition).getUtxo().toString(),
+        (recreatedOps[0] as CreateOperation).getUtxo().toString(),
         validUtxo.toString(),
       );
 
