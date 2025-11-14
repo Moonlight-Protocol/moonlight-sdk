@@ -8,8 +8,8 @@ export enum MLXDRTypeByte {
   SpendOperation = 0x05,
   DepositOperation = 0x06,
   WithdrawOperation = 0x07,
-
-  TransactionBundle = 0x08,
+  OperationsBundle = 0x08,
+  TransactionBundle = 0x09,
 }
 
 export const MLXDRPrefix: Buffer = Buffer.from([0x30, 0xb0]);
