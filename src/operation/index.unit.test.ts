@@ -12,9 +12,9 @@ import { UTXOOperationType } from "./types.ts";
 import type { CreateCondition } from "../conditions/types.ts";
 import { Condition } from "../conditions/index.ts";
 import { Asset, Networks } from "@stellar/stellar-sdk";
-import { UTXOKeypairBase } from "@moonlight/moonlight-sdk";
+import { UTXOKeypairBase } from "../core/utxo-keypair-base/index.ts";
 
-describe("Condition", () => {
+describe("Operation", () => {
   let validPublicKey: Ed25519PublicKey;
   let validUtxo: UTXOPublicKey;
 
