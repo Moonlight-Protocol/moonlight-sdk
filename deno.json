@@ -14,7 +14,7 @@
   "exports": "./mod.ts",
   "imports": {
     "@fifo/convee": "jsr:@fifo/convee@^0.5.0",
-    "@colibri/core": "jsr:@colibri/core@^0.5.3",
+    "@colibri/core": "jsr:@colibri/core@^0.15.0",
 
     "@noble/curves": "jsr:@noble/curves@^1.8.0",
     "@noble/curves/p256": "jsr:@noble/curves@^1.8.0/p256",

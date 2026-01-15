@@ -1,8 +1,4 @@
-import type {
-  ContractId,
-  Ed25519PublicKey,
-  TransactionSigner,
-} from "@colibri/core";
+import type { ContractId, Ed25519PublicKey, Signer } from "@colibri/core";
 
 import type { Keypair, xdr } from "@stellar/stellar-sdk";
 import type {
@@ -52,7 +48,7 @@ export interface DepositOperation extends BaseOperation {
   getPublicKey(): Ed25519PublicKey;
   toCondition(): DepositCondition;
   signWithEd25519(
-    depositorKeys: TransactionSigner | Keypair,
+    depositorKeys: Signer | Keypair,
     signatureExpirationLedger: number,
     channelId: ContractId,
     assetId: ContractId,
