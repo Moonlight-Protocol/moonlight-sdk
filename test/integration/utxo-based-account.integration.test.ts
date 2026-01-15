@@ -10,9 +10,8 @@ import {
   initializeWithFriendbot,
   LocalSigner,
   NativeAccount,
+  NetworkConfig,
   P_SimulateTransactionErrors,
-  TestNet,
-  type TestNetConfig,
   type TransactionConfig,
 } from "@colibri/core";
 
@@ -43,7 +42,7 @@ describe(
   "[Testnet - Integration] UtxoBasedAccount",
   disableSanitizeConfig,
   () => {
-    const networkConfig: TestNetConfig = TestNet() as TestNetConfig;
+    const networkConfig = NetworkConfig.TestNet();
 
     const admin = NativeAccount.fromMasterSigner(LocalSigner.generateRandom());
     const providerKeys = Keypair.random();
@@ -97,11 +96,11 @@ describe(
       channelWasm = loadContractWasm("privacy_channel");
 
       // Deploy ChannelAuth contract
-      const authContract = Contract.create({
+      const authContract = new Contract({
         networkConfig,
         contractConfig: {
           spec: AuthSpec,
-          wasm: authWasm,
+          wasm: authWasm as any,
         },
       });
 
@@ -134,11 +133,11 @@ describe(
         rpc = new Server(networkConfig.rpcUrl as string);
 
         // Deploy PrivacyChannel contract
-        const channelContract = Contract.create({
+        const channelContract = new Contract({
           networkConfig,
           contractConfig: {
             spec: ChannelSpec,
-            wasm: channelWasm,
+            wasm: channelWasm as any,
           },
         });
 
