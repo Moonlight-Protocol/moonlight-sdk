@@ -6,15 +6,14 @@ import {
   initializeWithFriendbot,
   LocalSigner,
   NativeAccount,
+  NetworkConfig,
   P_SimulateTransactionErrors,
-  TestNet,
 } from "@colibri/core";
 
 import type {
   ContractId,
   Ed25519PublicKey,
   Ed25519SecretKey,
-  TestNetConfig,
   TransactionConfig,
 } from "@colibri/core";
 import {
@@ -44,7 +43,7 @@ describe(
   "[Testnet - Integration] PrivacyChannel",
   disableSanitizeConfig,
   () => {
-    const networkConfig: TestNetConfig = TestNet();
+    const networkConfig = NetworkConfig.TestNet();
 
     const admin = NativeAccount.fromMasterSigner(LocalSigner.generateRandom());
 
@@ -98,11 +97,12 @@ describe(
       authWasm = loadContractWasm("channel_auth_contract");
       channelWasm = loadContractWasm("privacy_channel");
 
-      const authContract = Contract.create({
+      const authContract = new Contract({
         networkConfig,
         contractConfig: {
           spec: AuthSpec,
-          wasm: authWasm,
+          // deno-lint-ignore no-explicit-any
+          wasm: authWasm as any,
         },
       });
 
@@ -130,11 +130,12 @@ describe(
 
     describe("Basic tests", () => {
       beforeAll(async () => {
-        const channelContract = Contract.create({
+        const channelContract = new Contract({
           networkConfig,
           contractConfig: {
             spec: ChannelSpec,
-            wasm: channelWasm,
+            // deno-lint-ignore no-explicit-any
+            wasm: channelWasm as any,
           },
         });
 

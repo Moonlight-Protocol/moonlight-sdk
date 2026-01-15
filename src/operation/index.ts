@@ -1,9 +1,9 @@
 import {
   type ContractId,
   type Ed25519PublicKey,
-  isTransactionSigner,
+  isSigner,
+  type Signer,
   StrKey,
-  type TransactionSigner,
 } from "@colibri/core";
 import type { Condition as ConditionType } from "../conditions/types.ts";
 import { UTXOOperationType } from "./types.ts";
@@ -516,7 +516,7 @@ export class MoonlightOperation implements BaseOperation {
   }
 
   public async signWithEd25519(
-    depositorKeys: TransactionSigner | Keypair,
+    depositorKeys: Signer | Keypair,
     signatureExpirationLedger: number,
     channelId: ContractId,
     assetId: ContractId,
@@ -557,7 +557,7 @@ export class MoonlightOperation implements BaseOperation {
 
     let signedAuthEntry: xdr.SorobanAuthorizationEntry;
 
-    if (isTransactionSigner(depositorKeys)) {
+    if (isSigner(depositorKeys)) {
       signedAuthEntry = await depositorKeys.signSorobanAuthEntry(
         rawAuthEntry,
         signatureExpirationLedger,

@@ -24,8 +24,8 @@ import {
 import {
   type ContractId,
   type Ed25519PublicKey,
-  isTransactionSigner,
-  type TransactionSigner,
+  isSigner,
+  type Signer,
 } from "@colibri/core";
 import type {
   BaseOperation,
@@ -508,7 +508,7 @@ export class MoonlightTransactionBuilder {
   }
 
   public async signWithProvider(
-    providerKeys: TransactionSigner | Keypair,
+    providerKeys: Signer | Keypair,
     signatureExpirationLedger: number,
     nonce?: string,
   ) {
@@ -519,7 +519,7 @@ export class MoonlightTransactionBuilder {
       signatureExpirationLedger,
     );
 
-    const signedHash = isTransactionSigner(providerKeys)
+    const signedHash = isSigner(providerKeys)
       // deno-lint-ignore no-explicit-any
       ? providerKeys.sign(authHash as any)
       : providerKeys.sign(authHash);
@@ -550,7 +550,7 @@ export class MoonlightTransactionBuilder {
   }
 
   public async signExtWithEd25519(
-    keys: TransactionSigner | Keypair,
+    keys: Signer | Keypair,
     signatureExpirationLedger: number,
     nonce?: string,
   ) {

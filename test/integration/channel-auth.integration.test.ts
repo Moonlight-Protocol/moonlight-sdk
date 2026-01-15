@@ -6,7 +6,7 @@ import {
   initializeWithFriendbot,
   LocalSigner,
   NativeAccount,
-  TestNet,
+  NetworkConfig,
 } from "@colibri/core";
 
 import type {
@@ -22,14 +22,13 @@ import {
   AuthInvokeMethods,
   AuthReadMethods,
   AuthSpec,
-  ChannelAuth,
-  type ChannelTypes,
-} from "../../mod.ts";
-
+} from "../../src/channel-auth/constants.ts";
+import { ChannelAuth } from "../../src/channel-auth/index.ts";
 import { disableSanitizeConfig } from "../utils/disable-sanitize-config.ts";
+import type { ChannelTypes } from "@moonlight/moonlight-sdk";
 
 describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
-  const networkConfig = TestNet();
+  const networkConfig = NetworkConfig.TestNet();
 
   const admin = NativeAccount.fromMasterSigner(LocalSigner.generateRandom());
   const providerA = NativeAccount.fromMasterSigner(
@@ -63,11 +62,12 @@ describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
     let authId: ContractId;
 
     beforeAll(async () => {
-      const authContract = Contract.create({
+      const authContract = new Contract({
         networkConfig,
         contractConfig: {
           spec: AuthSpec,
-          wasm: authWasm,
+          // deno-lint-ignore no-explicit-any
+          wasm: authWasm as any,
         },
       });
 

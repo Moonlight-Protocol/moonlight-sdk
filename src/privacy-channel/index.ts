@@ -31,7 +31,7 @@ export class PrivacyChannel {
   ) {
     this._networkConfig = networkConfig;
 
-    this._client = Contract.create({
+    this._client = new Contract({
       networkConfig,
       contractConfig: { contractId: channelId, spec: ChannelSpec },
     });
