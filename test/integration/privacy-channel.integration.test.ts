@@ -14,7 +14,6 @@ import type {
   ContractId,
   Ed25519PublicKey,
   Ed25519SecretKey,
-  TestNetConfig,
   TransactionConfig,
 } from "@colibri/core";
 import {
@@ -102,6 +101,7 @@ describe(
         networkConfig,
         contractConfig: {
           spec: AuthSpec,
+          // deno-lint-ignore no-explicit-any
           wasm: authWasm as any,
         },
       });
@@ -134,6 +134,7 @@ describe(
           networkConfig,
           contractConfig: {
             spec: ChannelSpec,
+            // deno-lint-ignore no-explicit-any
             wasm: channelWasm as any,
           },
         });

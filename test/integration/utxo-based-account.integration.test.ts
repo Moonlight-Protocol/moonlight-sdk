@@ -100,6 +100,7 @@ describe(
         networkConfig,
         contractConfig: {
           spec: AuthSpec,
+          // deno-lint-ignore no-explicit-any
           wasm: authWasm as any,
         },
       });
@@ -137,6 +138,7 @@ describe(
           networkConfig,
           contractConfig: {
             spec: ChannelSpec,
+            // deno-lint-ignore no-explicit-any
             wasm: channelWasm as any,
           },
         });

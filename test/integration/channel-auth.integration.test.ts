@@ -66,6 +66,7 @@ describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
         networkConfig,
         contractConfig: {
           spec: AuthSpec,
+          // deno-lint-ignore no-explicit-any
           wasm: authWasm as any,
         },
       });
