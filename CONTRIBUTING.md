@@ -71,7 +71,7 @@ components. Integration tests are located in the `test/integration` folder.
 Example:
 
 ```typescript
-// filepath: /Users/fifo/Documents/moonlight/moonlight-sdk/test/integration/feature.integration.test.ts
+// filepath: /path/to/test/integration/feature.integration.test.ts
 Deno.test("Integration: FeatureName", async (t) => {
   await t.step("should complete workflow successfully", async () => {
     // ...test implementation...
