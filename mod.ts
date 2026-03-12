@@ -35,3 +35,5 @@ export * from "./src/error/errors.ts";
 
 export * from "./src/custom-xdr/index.ts";
 export * from "./src/custom-xdr/types.ts";
+
+export * from "./src/tracing/index.ts";
