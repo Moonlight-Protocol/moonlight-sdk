@@ -40,6 +40,7 @@ import * as E from "./error.ts";
 import { assert } from "../utils/assert/assert.ts";
 import { assertExtOpsExist } from "./validators/operations.ts";
 import type { PrivacyChannel } from "../privacy-channel/index.ts";
+import { type MoonlightTracer, withTrace, withTraceSync } from "../tracing/index.ts";
 
 export class MoonlightTransactionBuilder {
   private _create: CreateOperation[] = [];
@@ -58,22 +59,26 @@ export class MoonlightTransactionBuilder {
   > = new Map();
   private _extSignatures: Map<Ed25519PublicKey, xdr.SorobanAuthorizationEntry> =
     new Map();
+  private _tracer?: MoonlightTracer;
 
   constructor({
     channelId,
     authId,
     assetId,
     network,
+    tracer,
   }: {
     channelId: ContractId;
     authId: ContractId;
     assetId: ContractId;
     network: string;
+    tracer?: MoonlightTracer;
   }) {
     this._channelId = channelId;
     this._authId = authId;
     this._assetId = assetId;
     this._network = network;
+    this._tracer = tracer;
   }
 
   /**
@@ -89,6 +94,7 @@ export class MoonlightTransactionBuilder {
       authId: channelClient.getAuthId(),
       network: channelClient.getNetworkConfig().networkPassphrase,
       assetId: channelClient.getAssetId(),
+      tracer: channelClient.getTracer(),
     });
   }
 
@@ -314,12 +320,19 @@ export class MoonlightTransactionBuilder {
   //==========================================
 
   addOperation(op: MoonlightOperation): MoonlightTransactionBuilder {
-    if (op.isCreate()) return this.addCreate(op);
-    if (op.isSpend()) return this.addSpend(op);
-    if (op.isDeposit()) return this.addDeposit(op);
-    if (op.isWithdraw()) return this.addWithdraw(op);
+    return withTraceSync(this._tracer, "MoonlightTransactionBuilder.addOperation", (span) => {
+      let result: MoonlightTransactionBuilder;
+      if (op.isCreate()) result = this.addCreate(op);
+      else if (op.isSpend()) result = this.addSpend(op);
+      else if (op.isDeposit()) result = this.addDeposit(op);
+      else if (op.isWithdraw()) result = this.addWithdraw(op);
+      else throw new E.UNSUPPORTED_OP_TYPE((op as BaseOperation).getOperation());
 
-    throw new E.UNSUPPORTED_OP_TYPE((op as BaseOperation).getOperation());
+      span.addEvent("operation_added");
+      return result;
+    }, {
+      "operation.type": (op as BaseOperation).getOperation(),
+    });
   }
 
   private addCreate(op: CreateOperation): MoonlightTransactionBuilder {
@@ -512,41 +525,55 @@ export class MoonlightTransactionBuilder {
     signatureExpirationLedger: number,
     nonce?: string,
   ) {
-    if (!nonce) nonce = generateNonce();
+    return withTrace(this._tracer, "MoonlightTransactionBuilder.signWithProvider", async (span) => {
+      if (!nonce) nonce = generateNonce();
 
-    const authHash = await this.getOperationAuthEntryHash(
-      nonce,
-      signatureExpirationLedger,
-    );
+      span.addEvent("computing_auth_hash", { "expiration.ledger": signatureExpirationLedger });
 
-    const signedHash = isSigner(providerKeys)
-      // deno-lint-ignore no-explicit-any
-      ? providerKeys.sign(authHash as any)
-      : providerKeys.sign(authHash);
+      const authHash = await this.getOperationAuthEntryHash(
+        nonce,
+        signatureExpirationLedger,
+      );
 
-    this.addProviderInnerSignature(
-      providerKeys.publicKey() as Ed25519PublicKey,
-      signedHash as Buffer,
-      signatureExpirationLedger,
-      nonce,
-    );
+      span.addEvent("signing_hash");
+
+      const signedHash = isSigner(providerKeys)
+        // deno-lint-ignore no-explicit-any
+        ? providerKeys.sign(authHash as any)
+        : providerKeys.sign(authHash);
+
+      this.addProviderInnerSignature(
+        providerKeys.publicKey() as Ed25519PublicKey,
+        signedHash as Buffer,
+        signatureExpirationLedger,
+        nonce,
+      );
+
+      span.addEvent("provider_signature_added");
+    });
   }
 
   public async signWithSpendUtxo(
     utxoKp: IUTXOKeypairBase,
     signatureExpirationLedger: number,
   ) {
-    const spendOp = this.getSpendOperation(utxoKp.publicKey);
+    return withTrace(this._tracer, "MoonlightTransactionBuilder.signWithSpendUtxo", async (span) => {
+      const spendOp = this.getSpendOperation(utxoKp.publicKey);
 
-    assert(spendOp, new E.NO_SPEND_OPS(utxoKp.publicKey));
+      assert(spendOp, new E.NO_SPEND_OPS(utxoKp.publicKey));
 
-    await spendOp.signWithUTXO(
-      utxoKp,
-      this.getChannelId(),
-      signatureExpirationLedger,
-    );
+      span.addEvent("signing_utxo_spend", { "expiration.ledger": signatureExpirationLedger });
 
-    this.addInnerSignature(utxoKp.publicKey, spendOp.getUTXOSignature());
+      await spendOp.signWithUTXO(
+        utxoKp,
+        this.getChannelId(),
+        signatureExpirationLedger,
+      );
+
+      this.addInnerSignature(utxoKp.publicKey, spendOp.getUTXOSignature());
+
+      span.addEvent("utxo_spend_signed");
+    });
   }
 
   public async signExtWithEd25519(
@@ -554,28 +581,34 @@ export class MoonlightTransactionBuilder {
     signatureExpirationLedger: number,
     nonce?: string,
   ) {
-    const depositOp = this.getDepositOperation(
-      keys.publicKey() as Ed25519PublicKey,
-    );
+    return withTrace(this._tracer, "MoonlightTransactionBuilder.signExtWithEd25519", async (span) => {
+      const depositOp = this.getDepositOperation(
+        keys.publicKey() as Ed25519PublicKey,
+      );
 
-    assert(
-      depositOp,
-      new E.NO_DEPOSIT_OPS(keys.publicKey() as Ed25519PublicKey),
-    );
+      assert(
+        depositOp,
+        new E.NO_DEPOSIT_OPS(keys.publicKey() as Ed25519PublicKey),
+      );
 
-    await depositOp.signWithEd25519(
-      keys,
-      signatureExpirationLedger,
-      this.getChannelId(),
-      this.getAssetId(),
-      this.network,
-      nonce,
-    );
+      span.addEvent("signing_deposit_ed25519", { "expiration.ledger": signatureExpirationLedger });
 
-    this.addExtSignedEntry(
-      keys.publicKey() as Ed25519PublicKey,
-      depositOp.getEd25519Signature(),
-    );
+      await depositOp.signWithEd25519(
+        keys,
+        signatureExpirationLedger,
+        this.getChannelId(),
+        this.getAssetId(),
+        this.network,
+        nonce,
+      );
+
+      this.addExtSignedEntry(
+        keys.publicKey() as Ed25519PublicKey,
+        depositOp.getEd25519Signature(),
+      );
+
+      span.addEvent("ed25519_signature_added");
+    });
   }
 
   public getSignedAuthEntries(): xdr.SorobanAuthorizationEntry[] {
