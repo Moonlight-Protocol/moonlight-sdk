@@ -101,7 +101,7 @@ export class UtxoBasedAccount<
     startIndex?: number;
     count?: number;
   }): Promise<number[]> {
-    return withTrace(this.tracer, "UtxoBasedAccount.deriveBatch", async (span) => {
+    return await withTrace(this.tracer, "UtxoBasedAccount.deriveBatch", async (span) => {
       assert(startIndex >= 0, new E.NEGATIVE_INDEX(startIndex));
       assert(count > 0, new E.UTXO_TO_DERIVE_TOO_LOW(count));
 
@@ -140,7 +140,7 @@ export class UtxoBasedAccount<
    * @param indices Optional array of specific indices to load
    */
   async batchLoad(states?: UTXOStatus[], indices?: number[]): Promise<void> {
-    return withTrace(this.tracer, "UtxoBasedAccount.batchLoad", async (span) => {
+    return await withTrace(this.tracer, "UtxoBasedAccount.batchLoad", async (span) => {
       assert(this.fetchBalances, new E.MISSING_BATCH_FETCH_FN());
 
       const utxosToCheck = Array.from(this.utxos.entries()).filter(

@@ -191,7 +191,7 @@ export class PrivacyChannel {
     method: M;
     methodArgs: ChannelRead[M]["input"];
   }): Promise<ChannelRead[M]["output"]> {
-    return withTrace(this._tracer, `PrivacyChannel.read`, async (span) => {
+    return await withTrace(this._tracer, `PrivacyChannel.read`, async (span) => {
       span.addEvent("calling_contract_read", { "contract.method": args.method });
       const result = (await this.getClient().read(args)) as ChannelRead[M]["output"];
       span.addEvent("read_complete");
@@ -213,7 +213,7 @@ export class PrivacyChannel {
     auth?: xdr.SorobanAuthorizationEntry[];
     config: TransactionConfig;
   }): Promise<ReturnType<Contract["invoke"]>> {
-    return withTrace(this._tracer, `PrivacyChannel.invoke`, async (span) => {
+    return await withTrace(this._tracer, `PrivacyChannel.invoke`, async (span) => {
       span.addEvent("calling_contract_invoke", { "contract.method": args.method });
       const result = await this.getClient().invoke(args);
       span.addEvent("invoke_complete");
@@ -240,7 +240,7 @@ export class PrivacyChannel {
     };
     config: TransactionConfig;
   }): Promise<ReturnType<Contract["invoke"]>> {
-    return withTrace(this._tracer, `PrivacyChannel.invokeRaw`, async (span) => {
+    return await withTrace(this._tracer, `PrivacyChannel.invokeRaw`, async (span) => {
       span.addEvent("calling_contract_invoke_raw", {
         "contract.function": args.operationArgs.function,
       });

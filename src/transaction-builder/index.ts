@@ -524,8 +524,8 @@ export class MoonlightTransactionBuilder {
     providerKeys: Signer | Keypair,
     signatureExpirationLedger: number,
     nonce?: string,
-  ) {
-    return withTrace(this._tracer, "MoonlightTransactionBuilder.signWithProvider", async (span) => {
+  ): Promise<void> {
+    return await withTrace(this._tracer, "MoonlightTransactionBuilder.signWithProvider", async (span) => {
       if (!nonce) nonce = generateNonce();
 
       span.addEvent("computing_auth_hash", { "expiration.ledger": signatureExpirationLedger });
@@ -556,8 +556,8 @@ export class MoonlightTransactionBuilder {
   public async signWithSpendUtxo(
     utxoKp: IUTXOKeypairBase,
     signatureExpirationLedger: number,
-  ) {
-    return withTrace(this._tracer, "MoonlightTransactionBuilder.signWithSpendUtxo", async (span) => {
+  ): Promise<void> {
+    return await withTrace(this._tracer, "MoonlightTransactionBuilder.signWithSpendUtxo", async (span) => {
       const spendOp = this.getSpendOperation(utxoKp.publicKey);
 
       assert(spendOp, new E.NO_SPEND_OPS(utxoKp.publicKey));
@@ -580,8 +580,8 @@ export class MoonlightTransactionBuilder {
     keys: Signer | Keypair,
     signatureExpirationLedger: number,
     nonce?: string,
-  ) {
-    return withTrace(this._tracer, "MoonlightTransactionBuilder.signExtWithEd25519", async (span) => {
+  ): Promise<void> {
+    return await withTrace(this._tracer, "MoonlightTransactionBuilder.signExtWithEd25519", async (span) => {
       const depositOp = this.getDepositOperation(
         keys.publicKey() as Ed25519PublicKey,
       );
