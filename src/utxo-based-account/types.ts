@@ -1,5 +1,6 @@
 import type { UTXOKeypair } from "../core/utxo-keypair/index.ts";
 import type { BaseDerivator } from "../derivation/base/index.ts";
+import type { MoonlightTracer } from "../tracing/index.ts";
 
 /**
  * Result of UTXO selection for transfers
@@ -22,5 +23,6 @@ export type UTXOBasedAccountConstructorArgs<
     fetchBalances?: (publicKeys: Uint8Array[]) => Promise<bigint[]>;
     startIndex?: number;
     maxReservationAgeMs?: number;
+    tracer?: MoonlightTracer;
   };
 };
