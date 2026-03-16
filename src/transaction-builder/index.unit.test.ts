@@ -19,6 +19,30 @@ import { UTXOKeypairBase } from "../core/utxo-keypair-base/index.ts";
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 import * as OPR_ERR from "../operation/error.ts";
 import * as TBU_ERR from "./error.ts";
+import type { MoonlightSpan, MoonlightTracer } from "../tracing/index.ts";
+
+function createSpyTracer() {
+  const events: { name: string; attributes?: Record<string, string | number | boolean> }[] = [];
+  let ended = false;
+
+  const span: MoonlightSpan = {
+    addEvent(name, attributes) {
+      events.push({ name, attributes });
+    },
+    setError() {},
+    end() {
+      ended = true;
+    },
+  };
+
+  const tracer: MoonlightTracer = {
+    startSpan(_name, _attributes) {
+      return span;
+    },
+  };
+
+  return { tracer, events, isEnded: () => ended };
+}
 
 describe("MoonlightTransactionBuilder", () => {
   let validPublicKey: Ed25519PublicKey;
@@ -591,6 +615,118 @@ describe("MoonlightTransactionBuilder", () => {
 
     describe("Signatures XDR", () => {
       // ... existing signatures XDR tests ...
+    });
+
+    describe("Tracing", () => {
+      it("should emit tracing events when adding operations with tracer", async () => {
+        const spy = createSpyTracer();
+        const utxo = (await generateP256KeyPair()).publicKey as UTXOPublicKey;
+        const operation = Operation.create(utxo, validAmount);
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          assetId,
+          network,
+          tracer: spy.tracer,
+        });
+
+        testBuilder.addOperation(operation);
+
+        const eventNames = spy.events.map((e) => e.name);
+        assertEquals(eventNames.includes("enter"), true);
+        assertEquals(eventNames.includes("operation_added"), true);
+        assertEquals(eventNames.includes("exit"), true);
+        assertEquals(spy.isEnded(), true);
+      });
+
+      it("should emit tracing events when signing with provider", async () => {
+        const spy = createSpyTracer();
+        const providerKeys = LocalSigner.generateRandom();
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          assetId,
+          network,
+          tracer: spy.tracer,
+        });
+
+        await testBuilder.signWithProvider(providerKeys, 1000000);
+
+        const eventNames = spy.events.map((e) => e.name);
+        assertEquals(eventNames.includes("enter"), true);
+        assertEquals(eventNames.includes("computing_auth_hash"), true);
+        assertEquals(eventNames.includes("signing_hash"), true);
+        assertEquals(eventNames.includes("provider_signature_added"), true);
+        assertEquals(eventNames.includes("exit"), true);
+        assertEquals(spy.isEnded(), true);
+      });
+
+      it("should emit tracing events when signing with spend UTXO", async () => {
+        const spy = createSpyTracer();
+        const utxoKeys = new UTXOKeypairBase(await generateP256KeyPair());
+        const utxo = utxoKeys.publicKey as UTXOPublicKey;
+        const spendOperation = Operation.spend(utxo);
+
+        spendOperation.addCondition(
+          Condition.create(
+            (await generateP256KeyPair()).publicKey as UTXOPublicKey,
+            1n,
+          ),
+        );
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          assetId,
+          network,
+          tracer: spy.tracer,
+        });
+
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addSpend(spendOperation);
+        spy.events.length = 0;
+
+        await testBuilder.signWithSpendUtxo(utxoKeys, 1000000);
+
+        const eventNames = spy.events.map((e) => e.name);
+        assertEquals(eventNames.includes("enter"), true);
+        assertEquals(eventNames.includes("signing_utxo_spend"), true);
+        assertEquals(eventNames.includes("utxo_spend_signed"), true);
+        assertEquals(eventNames.includes("exit"), true);
+        assertEquals(spy.isEnded(), true);
+      });
+
+      it("should emit tracing events when signing ext with Ed25519", async () => {
+        const spy = createSpyTracer();
+        const userKeys = LocalSigner.generateRandom();
+        const pubKey = userKeys.publicKey() as Ed25519PublicKey;
+        const condition = Condition.deposit(pubKey, validAmount);
+        const operation = Operation.deposit(pubKey, validAmount);
+        operation.addCondition(condition);
+
+        const testBuilder = new MoonlightTransactionBuilder({
+          channelId,
+          authId,
+          assetId,
+          network,
+          tracer: spy.tracer,
+        });
+
+        // deno-lint-ignore no-explicit-any
+        (testBuilder as any).addDeposit(operation);
+        spy.events.length = 0;
+
+        await testBuilder.signExtWithEd25519(userKeys, 1000000, generateNonce());
+
+        const eventNames = spy.events.map((e) => e.name);
+        assertEquals(eventNames.includes("enter"), true);
+        assertEquals(eventNames.includes("signing_deposit_ed25519"), true);
+        assertEquals(eventNames.includes("ed25519_signature_added"), true);
+        assertEquals(eventNames.includes("exit"), true);
+        assertEquals(spy.isEnded(), true);
+      });
     });
   });
 

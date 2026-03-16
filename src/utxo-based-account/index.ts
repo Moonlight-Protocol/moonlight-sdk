@@ -8,6 +8,7 @@ import type {
 } from "./types.ts";
 import * as E from "./error.ts";
 import { assert } from "../utils/assert/assert.ts";
+import { type MoonlightTracer, withTrace, withTraceSync } from "../tracing/index.ts";
 /**
  * Manages UTXO-based accounts with advanced features for privacy-focused blockchain operations
  */
@@ -21,6 +22,7 @@ export class UtxoBasedAccount<
   private batchSize: number;
   private fetchBalances?: (publicKeys: Uint8Array[]) => Promise<bigint[]>;
   private readonly maxReservationAgeMs: number;
+  private tracer?: MoonlightTracer;
 
   // Primary storage: index -> UTXO
   private utxos: Map<number, UTXOKeypair<Context, Index>> = new Map();
@@ -57,6 +59,7 @@ export class UtxoBasedAccount<
     this.fetchBalances = args.options?.fetchBalances;
     this.nextIndex = args.options?.startIndex ?? 1;
     this.maxReservationAgeMs = args.options?.maxReservationAgeMs ?? 300000; // Default 5 minutes
+    this.tracer = args.options?.tracer;
   }
 
   private createProxy(
@@ -98,33 +101,36 @@ export class UtxoBasedAccount<
     startIndex?: number;
     count?: number;
   }): Promise<number[]> {
-    assert(startIndex >= 0, new E.NEGATIVE_INDEX(startIndex));
-    assert(count > 0, new E.UTXO_TO_DERIVE_TOO_LOW(count));
+    return await withTrace(this.tracer, "UtxoBasedAccount.deriveBatch", async (span) => {
+      assert(startIndex >= 0, new E.NEGATIVE_INDEX(startIndex));
+      assert(count > 0, new E.UTXO_TO_DERIVE_TOO_LOW(count));
 
-    const derivedIndices: number[] = [];
+      span.addEvent("deriving_utxos", {
+        "derive.startIndex": startIndex,
+        "derive.count": count,
+      });
 
-    for (let i = 0; i < count; i++) {
-      const utxoIndex = startIndex + i;
-      const keypair = await UTXOKeypair.fromDerivator(
-        this.derivator,
-        `${utxoIndex}` as Index,
-      );
+      const derivedIndices: number[] = [];
 
-      // Create proxied UTXO that automatically updates status index
-      const proxiedKeypair = this.createProxy(keypair);
+      for (let i = 0; i < count; i++) {
+        const utxoIndex = startIndex + i;
+        const keypair = await UTXOKeypair.fromDerivator(
+          this.derivator,
+          `${utxoIndex}` as Index,
+        );
 
-      // Store in primary map
-      this.utxos.set(utxoIndex, proxiedKeypair);
+        const proxiedKeypair = this.createProxy(keypair);
+        this.utxos.set(utxoIndex, proxiedKeypair);
+        proxiedKeypair.balance = -1n;
+        proxiedKeypair.status = UTXOStatus.FREE;
+        derivedIndices.push(utxoIndex);
+      }
 
-      // Initialize status and balance for new UTXOs
-      proxiedKeypair.balance = -1n; // Mark as not created yet
-      proxiedKeypair.status = UTXOStatus.FREE;
+      this.nextIndex = Math.max(this.nextIndex, startIndex + count);
 
-      derivedIndices.push(utxoIndex);
-    }
-
-    this.nextIndex = Math.max(this.nextIndex, startIndex + count);
-    return derivedIndices;
+      span.addEvent("derivation_complete", { "derived.count": derivedIndices.length });
+      return derivedIndices;
+    });
   }
 
   /**
@@ -134,45 +140,42 @@ export class UtxoBasedAccount<
    * @param indices Optional array of specific indices to load
    */
   async batchLoad(states?: UTXOStatus[], indices?: number[]): Promise<void> {
-    assert(this.fetchBalances, new E.MISSING_BATCH_FETCH_FN());
+    return await withTrace(this.tracer, "UtxoBasedAccount.batchLoad", async (span) => {
+      assert(this.fetchBalances, new E.MISSING_BATCH_FETCH_FN());
 
-    // Get all relevant UTXOs
-    const utxosToCheck = Array.from(this.utxos.entries()).filter(
-      ([index, utxo]) =>
-        (!states || states.includes(utxo.status)) &&
-        (!indices || indices.includes(index)),
-    );
+      const utxosToCheck = Array.from(this.utxos.entries()).filter(
+        ([index, utxo]) =>
+          (!states || states.includes(utxo.status)) &&
+          (!indices || indices.includes(index)),
+      );
 
-    // Process UTXOs in batches
-    for (let i = 0; i < utxosToCheck.length; i += this.batchSize) {
-      const batchEntries = utxosToCheck.slice(i, i + this.batchSize);
-      const publicKeys = batchEntries.map(([, utxo]) => utxo.publicKey);
-      const balances = await this.fetchBalances(publicKeys);
+      span.addEvent("loading_balances", { "utxos.count": utxosToCheck.length });
 
-      batchEntries.forEach(([index, utxo], idx) => {
-        const balance = balances[idx];
+      for (let i = 0; i < utxosToCheck.length; i += this.batchSize) {
+        const batchEntries = utxosToCheck.slice(i, i + this.batchSize);
+        const publicKeys = batchEntries.map(([, utxo]) => utxo.publicKey);
+        const balances = await this.fetchBalances(publicKeys);
 
-        // Update UTXO balance and state based on balance
-        utxo.balance = balance;
+        batchEntries.forEach(([index, utxo], idx) => {
+          const balance = balances[idx];
+          utxo.balance = balance;
 
-        // Update status based on balance:
-        // - balance > 0: UNSPENT (has funds)
-        // - balance = 0: SPENT (exists on chain but empty)
-        // - balance = -1: FREE (not created yet)
-        if (balance > 0n) {
-          utxo.status = UTXOStatus.UNSPENT;
-        } else if (balance === 0n) {
-          utxo.status = UTXOStatus.SPENT;
-        } else {
-          utxo.status = UTXOStatus.FREE;
-        }
+          if (balance > 0n) {
+            utxo.status = UTXOStatus.UNSPENT;
+          } else if (balance === 0n) {
+            utxo.status = UTXOStatus.SPENT;
+          } else {
+            utxo.status = UTXOStatus.FREE;
+          }
 
-        // If this UTXO was reserved and now has balance, unreserve it
-        if (balance > 0n && this.isReserved(index)) {
-          this.unreserve(index);
-        }
-      });
-    }
+          if (balance > 0n && this.isReserved(index)) {
+            this.unreserve(index);
+          }
+        });
+      }
+
+      span.addEvent("balances_loaded");
+    });
   }
 
   /**
@@ -235,41 +238,58 @@ export class UtxoBasedAccount<
     amount: bigint,
     strategy: UTXOSelectionStrategy = UTXOSelectionStrategy.SEQUENTIAL,
   ): UTXOSelectionResult<Context> | null {
-    const unspentUtxos = this.getUTXOsByState(UTXOStatus.UNSPENT);
+    return withTraceSync(this.tracer, "UtxoBasedAccount.selectUTXOsForTransfer", (span) => {
+      const unspentUtxos = this.getUTXOsByState(UTXOStatus.UNSPENT);
 
-    if (strategy === UTXOSelectionStrategy.RANDOM) {
-      // Fisher-Yates shuffle for random selection
-      for (let i = unspentUtxos.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [unspentUtxos[i], unspentUtxos[j]] = [unspentUtxos[j], unspentUtxos[i]];
+      span.addEvent("unspent_utxos_found", { "utxos.count": unspentUtxos.length });
+
+      if (strategy === UTXOSelectionStrategy.RANDOM) {
+        // Fisher-Yates shuffle for random selection
+        for (let i = unspentUtxos.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [unspentUtxos[i], unspentUtxos[j]] = [unspentUtxos[j], unspentUtxos[i]];
+        }
       }
-    }
 
-    let totalAmount = 0n;
-    const selectedUTXOs: UTXOKeypair<Context, Index>[] = [];
+      let totalAmount = 0n;
+      const selectedUTXOs: UTXOKeypair<Context, Index>[] = [];
 
-    for (const utxo of unspentUtxos) {
-      selectedUTXOs.push(utxo);
-      totalAmount += utxo.balance;
+      for (const utxo of unspentUtxos) {
+        selectedUTXOs.push(utxo);
+        totalAmount += utxo.balance;
 
-      if (totalAmount >= amount) {
-        break;
+        if (totalAmount >= amount) {
+          break;
+        }
       }
-    }
 
-    // If we couldn't accumulate enough funds, return null
-    if (totalAmount < amount) {
-      return null;
-    }
+      // If we couldn't accumulate enough funds, return null
+      if (totalAmount < amount) {
+        span.addEvent("insufficient_funds", {
+          "total.available": totalAmount.toString(),
+          "amount.requested": amount.toString(),
+        });
+        return null;
+      }
 
-    // Calculate change amount
-    const changeAmount = totalAmount - amount;
+      // Calculate change amount
+      const changeAmount = totalAmount - amount;
 
-    return {
-      selectedUTXOs,
-      totalAmount,
-      changeAmount,
-    };
+      span.addEvent("selection_complete", {
+        "selected.count": selectedUTXOs.length,
+        "total.amount": totalAmount.toString(),
+        "change.amount": changeAmount.toString(),
+      });
+
+      return {
+        selectedUTXOs,
+        totalAmount,
+        changeAmount,
+      };
+    }, {
+      "select.amount": amount.toString(),
+      "select.strategy": strategy,
+    });
   }
 
   /**

@@ -13,6 +13,30 @@ import { UTXOStatus } from "../core/utxo-keypair/types.ts";
 import { StellarDerivator } from "../derivation/stellar/index.ts";
 import { StellarNetworkId } from "../derivation/stellar/stellar-network-id.ts";
 import * as UBA_ERR from "./error.ts";
+import type { MoonlightSpan, MoonlightTracer } from "../tracing/index.ts";
+
+function createSpyTracer() {
+  const events: { name: string; attributes?: Record<string, string | number | boolean> }[] = [];
+  let ended = false;
+
+  const span: MoonlightSpan = {
+    addEvent(name, attributes) {
+      events.push({ name, attributes });
+    },
+    setError() {},
+    end() {
+      ended = true;
+    },
+  };
+
+  const tracer: MoonlightTracer = {
+    startSpan(_name, _attributes) {
+      return span;
+    },
+  };
+
+  return { tracer, events, isEnded: () => ended };
+}
 
 // Test secret key and contract ID for Stellar Testnet
 const TEST_SECRET_KEY =
@@ -277,6 +301,122 @@ Deno.test("UtxoBasedAccount", async (t) => {
       // Change one UTXO to SPENT state
       account.updateUTXOState(2, UTXOStatus.SPENT, 0n);
       assertEquals(account.getTotalBalance(), 400n);
+    },
+  );
+
+  await t.step(
+    "deriveBatch should emit tracing events when tracer is provided",
+    async () => {
+      const root = TEST_SECRET_KEY;
+      const derivator = getBaseDerivator();
+      const spy = createSpyTracer();
+
+      const account = new UtxoBasedAccount({
+        derivator,
+        root,
+        options: { tracer: spy.tracer },
+      });
+
+      await account.deriveBatch({ count: 2 });
+
+      const eventNames = spy.events.map((e) => e.name);
+      assertEquals(eventNames.includes("enter"), true);
+      assertEquals(eventNames.includes("deriving_utxos"), true);
+      assertEquals(eventNames.includes("derivation_complete"), true);
+      assertEquals(eventNames.includes("exit"), true);
+      assertEquals(spy.isEnded(), true);
+    },
+  );
+
+  await t.step(
+    "batchLoad should emit tracing events when tracer is provided",
+    async () => {
+      const root = TEST_SECRET_KEY;
+      const derivator = getBaseDerivator();
+      const spy = createSpyTracer();
+
+      const account = new UtxoBasedAccount({
+        derivator,
+        root,
+        options: {
+          tracer: spy.tracer,
+          fetchBalances: async () => [10n, 0n],
+        },
+      });
+
+      await account.deriveBatch({ count: 2 });
+      // Reset spy events after deriveBatch
+      spy.events.length = 0;
+
+      await account.batchLoad();
+
+      const eventNames = spy.events.map((e) => e.name);
+      assertEquals(eventNames.includes("enter"), true);
+      assertEquals(eventNames.includes("loading_balances"), true);
+      assertEquals(eventNames.includes("balances_loaded"), true);
+      assertEquals(eventNames.includes("exit"), true);
+      assertEquals(spy.isEnded(), true);
+    },
+  );
+
+  await t.step(
+    "selectUTXOsForTransfer should emit tracing events when tracer is provided",
+    async () => {
+      const root = TEST_SECRET_KEY;
+      const derivator = getBaseDerivator();
+      const spy = createSpyTracer();
+
+      const account = new UtxoBasedAccount({
+        derivator,
+        root,
+        options: {
+          tracer: spy.tracer,
+          fetchBalances: async () => [100n, 200n],
+        },
+      });
+
+      await account.deriveBatch({ count: 2 });
+      await account.batchLoad();
+      spy.events.length = 0;
+
+      const result = account.selectUTXOsForTransfer(150n);
+
+      assertExists(result);
+      const eventNames = spy.events.map((e) => e.name);
+      assertEquals(eventNames.includes("enter"), true);
+      assertEquals(eventNames.includes("unspent_utxos_found"), true);
+      assertEquals(eventNames.includes("selection_complete"), true);
+      assertEquals(eventNames.includes("exit"), true);
+      assertEquals(spy.isEnded(), true);
+    },
+  );
+
+  await t.step(
+    "selectUTXOsForTransfer should emit insufficient_funds event when tracer is provided",
+    async () => {
+      const root = TEST_SECRET_KEY;
+      const derivator = getBaseDerivator();
+      const spy = createSpyTracer();
+
+      const account = new UtxoBasedAccount({
+        derivator,
+        root,
+        options: {
+          tracer: spy.tracer,
+          fetchBalances: async () => [100n, 200n],
+        },
+      });
+
+      await account.deriveBatch({ count: 2 });
+      await account.batchLoad();
+      spy.events.length = 0;
+
+      const result = account.selectUTXOsForTransfer(1000n);
+
+      assertEquals(result, null);
+      const eventNames = spy.events.map((e) => e.name);
+      assertEquals(eventNames.includes("insufficient_funds"), true);
+      assertEquals(spy.isEnded(), true);
     },
   );
 });

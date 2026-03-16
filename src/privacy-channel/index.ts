@@ -16,18 +16,21 @@ import type { xdr } from "@stellar/stellar-sdk";
 import * as E from "./error.ts";
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 import { Buffer } from "buffer";
+import { type MoonlightTracer, withTrace } from "../tracing/index.ts";
 
 export class PrivacyChannel {
   private _client: Contract;
   private _authId: ContractId;
   private _assetId: ContractId;
   private _networkConfig: NetworkConfig;
+  private _tracer?: MoonlightTracer;
 
   public constructor(
     networkConfig: NetworkConfig,
     channelId: ContractId,
     authId: ContractId,
     assetId: ContractId,
+    options?: { tracer?: MoonlightTracer },
   ) {
     this._networkConfig = networkConfig;
 
@@ -39,6 +42,15 @@ export class PrivacyChannel {
     this._authId = authId;
 
     this._assetId = assetId;
+
+    this._tracer = options?.tracer;
+  }
+
+  /**
+   * Returns the tracer instance if set, otherwise undefined.
+   */
+  public getTracer(): MoonlightTracer | undefined {
+    return this._tracer;
   }
 
   //==========================================
@@ -179,9 +191,12 @@ export class PrivacyChannel {
     method: M;
     methodArgs: ChannelRead[M]["input"];
   }): Promise<ChannelRead[M]["output"]> {
-    return (await this.getClient().read(args)) as Promise<
-      ChannelRead[M]["output"]
-    >;
+    return await withTrace(this._tracer, `PrivacyChannel.read`, async (span) => {
+      span.addEvent("calling_contract_read", { "contract.method": args.method });
+      const result = (await this.getClient().read(args)) as ChannelRead[M]["output"];
+      span.addEvent("read_complete");
+      return result;
+    }, { "contract.method": args.method });
   }
 
   /**
@@ -198,7 +213,12 @@ export class PrivacyChannel {
     auth?: xdr.SorobanAuthorizationEntry[];
     config: TransactionConfig;
   }): Promise<ReturnType<Contract["invoke"]>> {
-    return await this.getClient().invoke(args);
+    return await withTrace(this._tracer, `PrivacyChannel.invoke`, async (span) => {
+      span.addEvent("calling_contract_invoke", { "contract.method": args.method });
+      const result = await this.getClient().invoke(args);
+      span.addEvent("invoke_complete");
+      return result;
+    }, { "contract.method": args.method });
   }
 
   /**
@@ -220,6 +240,13 @@ export class PrivacyChannel {
     };
     config: TransactionConfig;
   }): Promise<ReturnType<Contract["invoke"]>> {
-    return await this.getClient().invokeRaw(args);
+    return await withTrace(this._tracer, `PrivacyChannel.invokeRaw`, async (span) => {
+      span.addEvent("calling_contract_invoke_raw", {
+        "contract.function": args.operationArgs.function,
+      });
+      const result = await this.getClient().invokeRaw(args);
+      span.addEvent("invoke_raw_complete");
+      return result;
+    }, { "contract.function": args.operationArgs.function });
   }
 }
