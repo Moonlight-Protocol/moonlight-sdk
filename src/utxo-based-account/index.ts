@@ -68,12 +68,11 @@ export class UtxoBasedAccount<
     return new Proxy(utxo, {
       set: (
         target: UTXOKeypair<Context, Index>,
-        prop: keyof UTXOKeypair<Context, Index>,
+        prop: string | symbol,
         value: unknown,
       ) => {
-        const oldStatus = prop === "status" ? target[prop] : null;
-        // @ts-ignore - we know the type is compatible
-        target[prop] = value;
+        const oldStatus = prop === "status" ? target.status : null;
+        (target as unknown as Record<string | symbol, unknown>)[prop] = value;
 
         // Update status index if status changed
         if (prop === "status" && oldStatus !== value) {

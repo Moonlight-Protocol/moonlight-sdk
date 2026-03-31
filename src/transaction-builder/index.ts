@@ -538,7 +538,7 @@ export class MoonlightTransactionBuilder {
       span.addEvent("signing_hash");
 
       const signedHash = isSigner(providerKeys)
-        // deno-lint-ignore no-explicit-any
+        // deno-lint-ignore no-explicit-any -- Deno's Buffer vs npm buffer type mismatch
         ? providerKeys.sign(authHash as any)
         : providerKeys.sign(authHash);
 
