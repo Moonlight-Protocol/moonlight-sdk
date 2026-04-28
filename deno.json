@@ -1,6 +1,6 @@
 {
   "name": "@moonlight/moonlight-sdk",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "A privacy-focused toolkit for the Moonlight protocol on Stellar Soroban smart contracts.",
   "license": "MIT",
   "tasks": {
@@ -14,7 +14,7 @@
   "exports": "./mod.ts",
   "imports": {
     "@fifo/convee": "jsr:@fifo/convee@^0.5.0",
-    "@colibri/core": "jsr:@colibri/core@^0.16.1",
+    "@colibri/core": "jsr:@colibri/core@^0.20.2",
     "@noble/curves": "jsr:@noble/curves@^1.8.0",
     "@noble/curves/p256": "jsr:@noble/curves@^1.8.0/p256",
     "@noble/curves/abstract/modular": "jsr:@noble/curves@^1.8.0/abstract/modular",
@@ -22,7 +22,7 @@
     "@noble/hashes/sha256": "jsr:@noble/hashes@^1.6.1/sha256",
     "@noble/hashes/hkdf": "jsr:@noble/hashes@^1.6.1/hkdf",
     "@noble/secp256k1": "jsr:@noble/secp256k1",
-    "@stellar/stellar-sdk": "npm:@stellar/stellar-sdk@^14.2.0",
+    "@stellar/stellar-sdk": "npm:@stellar/stellar-sdk@^15.0.1",
     "@std/assert": "jsr:@std/assert@^1.0.0",
     "@std/testing": "jsr:@std/testing@^1.0.0",
     "tslib": "npm:tslib@2.5.0",

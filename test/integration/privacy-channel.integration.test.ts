@@ -7,7 +7,7 @@ import {
   LocalSigner,
   NativeAccount,
   NetworkConfig,
-  P_SimulateTransactionErrors,
+  SimulateTransactionErrors,
 } from "@colibri/core";
 
 import type {
@@ -276,7 +276,7 @@ describe(
             config: txConfig,
           })
           .catch((e) => {
-            if (e instanceof P_SimulateTransactionErrors.SIMULATION_FAILED) {
+            if (e instanceof SimulateTransactionErrors.SIMULATION_FAILED) {
               console.error("Error invoking contract:", e);
               console.error(
                 "Transaction XDR:",

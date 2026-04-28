@@ -558,11 +558,14 @@ export class MoonlightOperation implements BaseOperation {
     let signedAuthEntry: xdr.SorobanAuthorizationEntry;
 
     if (isSigner(depositorKeys)) {
-      signedAuthEntry = await depositorKeys.signSorobanAuthEntry(
+      // Colibri Signer.signSorobanAuthEntry returns SorobanAuthorizationEntryLike
+      // (a duck-typed superset), but the underlying value is a concrete
+      // xdr.SorobanAuthorizationEntry from stellar-sdk.
+      signedAuthEntry = (await depositorKeys.signSorobanAuthEntry(
         rawAuthEntry,
         signatureExpirationLedger,
         networkPassphrase,
-      );
+      )) as xdr.SorobanAuthorizationEntry;
     } else {
       signedAuthEntry = await authorizeEntry(
         rawAuthEntry,

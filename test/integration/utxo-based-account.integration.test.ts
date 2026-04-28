@@ -11,7 +11,7 @@ import {
   LocalSigner,
   NativeAccount,
   NetworkConfig,
-  P_SimulateTransactionErrors,
+  SimulateTransactionErrors,
   type TransactionConfig,
 } from "@colibri/core";
 
@@ -311,7 +311,7 @@ describe(
             config: txConfig,
           })
           .catch((e) => {
-            if (e instanceof P_SimulateTransactionErrors.SIMULATION_FAILED) {
+            if (e instanceof SimulateTransactionErrors.SIMULATION_FAILED) {
               console.error("Error invoking contract:", e);
               console.error(
                 "Transaction XDR:",
@@ -589,7 +589,7 @@ describe(
             config: txConfig,
           })
           .catch((e) => {
-            if (e instanceof P_SimulateTransactionErrors.SIMULATION_FAILED) {
+            if (e instanceof SimulateTransactionErrors.SIMULATION_FAILED) {
               console.error("Error invoking withdraw contract:", e);
               console.error(
                 "Transaction XDR:",
