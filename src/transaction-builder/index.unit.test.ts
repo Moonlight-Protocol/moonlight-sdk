@@ -22,7 +22,10 @@ import * as TBU_ERR from "./error.ts";
 import type { MoonlightSpan, MoonlightTracer } from "../tracing/index.ts";
 
 function createSpyTracer() {
-  const events: { name: string; attributes?: Record<string, string | number | boolean> }[] = [];
+  const events: {
+    name: string;
+    attributes?: Record<string, string | number | boolean>;
+  }[] = [];
   let ended = false;
 
   const span: MoonlightSpan = {
@@ -718,7 +721,11 @@ describe("MoonlightTransactionBuilder", () => {
         (testBuilder as any).addDeposit(operation);
         spy.events.length = 0;
 
-        await testBuilder.signExtWithEd25519(userKeys, 1000000, generateNonce());
+        await testBuilder.signExtWithEd25519(
+          userKeys,
+          1000000,
+          generateNonce(),
+        );
 
         const eventNames = spy.events.map((e) => e.name);
         assertEquals(eventNames.includes("enter"), true);

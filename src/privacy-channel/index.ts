@@ -191,12 +191,20 @@ export class PrivacyChannel {
     method: M;
     methodArgs: ChannelRead[M]["input"];
   }): Promise<ChannelRead[M]["output"]> {
-    return await withTrace(this._tracer, `PrivacyChannel.read`, async (span) => {
-      span.addEvent("calling_contract_read", { "contract.method": args.method });
-      const result = (await this.getClient().read(args)) as ChannelRead[M]["output"];
-      span.addEvent("read_complete");
-      return result;
-    }, { "contract.method": args.method });
+    return await withTrace(
+      this._tracer,
+      `PrivacyChannel.read`,
+      async (span) => {
+        span.addEvent("calling_contract_read", {
+          "contract.method": args.method,
+        });
+        const result =
+          (await this.getClient().read(args)) as ChannelRead[M]["output"];
+        span.addEvent("read_complete");
+        return result;
+      },
+      { "contract.method": args.method },
+    );
   }
 
   /**
@@ -213,12 +221,19 @@ export class PrivacyChannel {
     auth?: xdr.SorobanAuthorizationEntry[];
     config: TransactionConfig;
   }): Promise<ReturnType<Contract["invoke"]>> {
-    return await withTrace(this._tracer, `PrivacyChannel.invoke`, async (span) => {
-      span.addEvent("calling_contract_invoke", { "contract.method": args.method });
-      const result = await this.getClient().invoke(args);
-      span.addEvent("invoke_complete");
-      return result;
-    }, { "contract.method": args.method });
+    return await withTrace(
+      this._tracer,
+      `PrivacyChannel.invoke`,
+      async (span) => {
+        span.addEvent("calling_contract_invoke", {
+          "contract.method": args.method,
+        });
+        const result = await this.getClient().invoke(args);
+        span.addEvent("invoke_complete");
+        return result;
+      },
+      { "contract.method": args.method },
+    );
   }
 
   /**
@@ -240,13 +255,18 @@ export class PrivacyChannel {
     };
     config: TransactionConfig;
   }): Promise<ReturnType<Contract["invoke"]>> {
-    return await withTrace(this._tracer, `PrivacyChannel.invokeRaw`, async (span) => {
-      span.addEvent("calling_contract_invoke_raw", {
-        "contract.function": args.operationArgs.function,
-      });
-      const result = await this.getClient().invokeRaw(args);
-      span.addEvent("invoke_raw_complete");
-      return result;
-    }, { "contract.function": args.operationArgs.function });
+    return await withTrace(
+      this._tracer,
+      `PrivacyChannel.invokeRaw`,
+      async (span) => {
+        span.addEvent("calling_contract_invoke_raw", {
+          "contract.function": args.operationArgs.function,
+        });
+        const result = await this.getClient().invokeRaw(args);
+        span.addEvent("invoke_raw_complete");
+        return result;
+      },
+      { "contract.function": args.operationArgs.function },
+    );
   }
 }

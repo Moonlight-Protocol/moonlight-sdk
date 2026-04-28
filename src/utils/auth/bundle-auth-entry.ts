@@ -1,5 +1,5 @@
 import type { xdr } from "@stellar/stellar-sdk";
-import { xdr as xdrHelper, type InvocationParams } from "@colibri/core";
+import { type InvocationParams, xdr as xdrHelper } from "@colibri/core";
 
 export const generateBundleAuthEntry = ({
   channelId,

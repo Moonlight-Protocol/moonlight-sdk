@@ -16,7 +16,10 @@ import * as UBA_ERR from "./error.ts";
 import type { MoonlightSpan, MoonlightTracer } from "../tracing/index.ts";
 
 function createSpyTracer() {
-  const events: { name: string; attributes?: Record<string, string | number | boolean> }[] = [];
+  const events: {
+    name: string;
+    attributes?: Record<string, string | number | boolean>;
+  }[] = [];
   let ended = false;
 
   const span: MoonlightSpan = {
