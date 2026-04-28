@@ -100,11 +100,18 @@ export async function withTrace<T>(
     return t.withActiveSpan(name, (span) => {
       span.addEvent("enter");
       const maybePromise = fn(span);
-      const promise = maybePromise instanceof Promise ? maybePromise : Promise.resolve(maybePromise);
+      const promise = maybePromise instanceof Promise
+        ? maybePromise
+        : Promise.resolve(maybePromise);
       return promise.then(
-        (result) => { span.addEvent("exit"); return result; },
+        (result) => {
+          span.addEvent("exit");
+          return result;
+        },
         (error) => {
-          span.setError(error instanceof Error ? error : new Error(String(error)));
+          span.setError(
+            error instanceof Error ? error : new Error(String(error)),
+          );
           span.addEvent("exit_with_error");
           throw error;
         },
@@ -150,7 +157,9 @@ export function withTraceSync<T>(
         span.addEvent("exit");
         return result;
       } catch (error) {
-        span.setError(error instanceof Error ? error : new Error(String(error)));
+        span.setError(
+          error instanceof Error ? error : new Error(String(error)),
+        );
         span.addEvent("exit_with_error");
         throw error;
       } finally {

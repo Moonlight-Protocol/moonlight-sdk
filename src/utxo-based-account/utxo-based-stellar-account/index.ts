@@ -25,11 +25,13 @@ export class UtxoBasedStellarAccount extends UtxoBasedAccount<
     channelClient: PrivacyChannel;
     root: StellarDerivationRoot;
     options?: Omit<
-      NonNullable<UTXOBasedAccountConstructorArgs<
-        StellarDerivationContext,
-        StellarDerivationRoot,
-        StellarDerivationIndex
-      >["options"]>,
+      NonNullable<
+        UTXOBasedAccountConstructorArgs<
+          StellarDerivationContext,
+          StellarDerivationRoot,
+          StellarDerivationIndex
+        >["options"]
+      >,
       "fetchBalances"
     >;
   }): UtxoBasedStellarAccount {

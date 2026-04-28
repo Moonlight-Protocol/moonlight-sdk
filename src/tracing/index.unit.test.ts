@@ -10,7 +10,10 @@ import {
 } from "./index.ts";
 
 function createMockTracer() {
-  const events: { name: string; attributes?: Record<string, string | number | boolean> }[] = [];
+  const events: {
+    name: string;
+    attributes?: Record<string, string | number | boolean>;
+  }[] = [];
   const errors: Error[] = [];
   let ended = false;
 
@@ -36,7 +39,10 @@ function createMockTracer() {
 }
 
 function createMockTracerWithActiveSpan() {
-  const events: { name: string; attributes?: Record<string, string | number | boolean> }[] = [];
+  const events: {
+    name: string;
+    attributes?: Record<string, string | number | boolean>;
+  }[] = [];
   const errors: Error[] = [];
   let ended = false;
 

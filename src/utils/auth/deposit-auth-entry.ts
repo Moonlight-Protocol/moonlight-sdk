@@ -1,5 +1,9 @@
 import type { xdr } from "@stellar/stellar-sdk";
-import { xdr as xdrHelper, type FnArg, type InvocationParams } from "@colibri/core";
+import {
+  type FnArg,
+  type InvocationParams,
+  xdr as xdrHelper,
+} from "@colibri/core";
 
 export const buildDepositAuthEntry = ({
   channelId,
