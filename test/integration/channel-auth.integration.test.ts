@@ -80,6 +80,9 @@ describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
         constructorArgs: {
           admin: admin.address() as Ed25519PublicKey,
         } as ChannelTypes.ChannelConstructorArgs,
+      }).catch((e) => {
+        console.log(e);
+        throw e;
       });
 
       authId = authContract.getContractId();
