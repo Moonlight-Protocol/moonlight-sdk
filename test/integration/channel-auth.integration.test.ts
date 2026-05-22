@@ -31,15 +31,23 @@ describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
   const networkConfig = NetworkConfig.TestNet();
 
   const admin = NativeAccount.fromMasterSigner(LocalSigner.generateRandom());
+  const newAdmin = NativeAccount.fromMasterSigner(LocalSigner.generateRandom());
   const providerA = NativeAccount.fromMasterSigner(
     LocalSigner.generateRandom(),
   );
 
-  const txConfig: TransactionConfig = {
+  const adminTxConfig: TransactionConfig = {
     fee: "1000000",
     timeout: 30,
     source: admin.address(),
     signers: [admin.signer()],
+  };
+
+  const newAdminTxConfig: TransactionConfig = {
+    fee: "1000000",
+    timeout: 30,
+    source: newAdmin.address(),
+    signers: [newAdmin.signer()],
   };
 
   let authWasm: Buffer;
@@ -48,6 +56,11 @@ describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
     await initializeWithFriendbot(
       networkConfig.friendbotUrl,
       admin.address() as Ed25519PublicKey,
+    );
+
+    await initializeWithFriendbot(
+      networkConfig.friendbotUrl,
+      newAdmin.address() as Ed25519PublicKey,
     );
 
     await initializeWithFriendbot(
@@ -72,11 +85,11 @@ describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
       });
 
       await authContract.uploadWasm({
-        ...txConfig,
+        ...adminTxConfig,
       });
 
       await authContract.deploy({
-        config: txConfig,
+        config: adminTxConfig,
         constructorArgs: {
           admin: admin.address() as Ed25519PublicKey,
         } as ChannelTypes.ChannelConstructorArgs,
@@ -128,7 +141,7 @@ describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
       await authClient.invoke({
         method: AuthInvokeMethods.add_provider,
         methodArgs: { provider: providerA.address() as Ed25519PublicKey },
-        config: txConfig,
+        config: adminTxConfig,
       });
 
       isProvider = await authClient.read({
@@ -142,7 +155,7 @@ describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
       await authClient.invoke({
         method: AuthInvokeMethods.remove_provider,
         methodArgs: { provider: providerA.address() as Ed25519PublicKey },
-        config: txConfig,
+        config: adminTxConfig,
       });
 
       isProvider = await authClient.read({
@@ -152,6 +165,43 @@ describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
 
       assertExists(isProvider);
       assertEquals(isProvider, false);
+    });
+
+    it("should transfer admin through the two-step accept flow", async () => {
+      const authClient = new ChannelAuth(networkConfig, authId);
+
+      const initialAdmin = await authClient.read({
+        method: AuthReadMethods.admin,
+        methodArgs: {},
+      });
+
+      assertEquals(initialAdmin, admin.address() as Ed25519PublicKey);
+
+      await authClient.invoke({
+        method: AuthInvokeMethods.set_admin,
+        methodArgs: { new_admin: newAdmin.address() as Ed25519PublicKey },
+        config: adminTxConfig,
+      });
+
+      const adminBeforeAccept = await authClient.read({
+        method: AuthReadMethods.admin,
+        methodArgs: {},
+      });
+
+      assertEquals(adminBeforeAccept, admin.address() as Ed25519PublicKey);
+
+      await authClient.invoke({
+        method: AuthInvokeMethods.accept_admin,
+        methodArgs: {},
+        config: newAdminTxConfig,
+      });
+
+      const adminAfterAccept = await authClient.read({
+        method: AuthReadMethods.admin,
+        methodArgs: {},
+      });
+
+      assertEquals(adminAfterAccept, newAdmin.address() as Ed25519PublicKey);
     });
   });
 });
