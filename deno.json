@@ -13,7 +13,7 @@
   "nodeModulesDir": "auto",
   "exports": "./mod.ts",
   "imports": {
-    "@colibri/core": "jsr:@colibri/core@^0.21.0",
+    "@colibri/core": "jsr:@colibri/core@^0.22.0",
     "@noble/curves": "jsr:@noble/curves@^1.8.0",
     "@noble/curves/p256": "jsr:@noble/curves@^1.8.0/p256",
     "@noble/curves/abstract/modular": "jsr:@noble/curves@^1.8.0/abstract/modular",

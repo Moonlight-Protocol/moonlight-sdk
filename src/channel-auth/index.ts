@@ -10,6 +10,7 @@ import {
   AuthSpec,
 } from "./constants.ts";
 import type { AuthInvoke, AuthRead } from "./types.ts";
+import { createMoonlightContractErrorPlugins } from "../error/contract-errors.ts";
 
 export class ChannelAuth {
   private _client: Contract;
@@ -20,7 +21,11 @@ export class ChannelAuth {
 
     this._client = new Contract({
       networkConfig,
-      contractConfig: { contractId: authId, spec: AuthSpec },
+      contractConfig: {
+        contractId: authId,
+        spec: AuthSpec,
+        plugins: createMoonlightContractErrorPlugins(),
+      },
     });
   }
 

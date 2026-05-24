@@ -350,6 +350,97 @@ describe(
         );
       });
 
+      it("should log the contract error when creating the same UTXO twice", async () => {
+        const testRoot = "S-TEST_SECRET_ROOT_DUPLICATE_CREATE";
+        const depositAmount = 500000n; // 0.05 XLM
+
+        const utxoAccount = UtxoBasedStellarAccount.fromPrivacyChannel({
+          channelClient,
+          root: testRoot,
+          options: {
+            batchSize: 10,
+          },
+        });
+
+        await utxoAccount.deriveBatch({ startIndex: 0, count: 1 });
+        const freeUtxos = utxoAccount.getUTXOsByState(UTXOStatus.FREE);
+        assertEquals(freeUtxos.length, 1, "Should have one FREE UTXO");
+
+        const testUtxo = freeUtxos[0];
+        assertExists(testUtxo, "Should have a test UTXO");
+
+        const buildSignedDepositTx = async () => {
+          const depositTx = MoonlightTransactionBuilder.fromPrivacyChannel(
+            channelClient,
+          );
+          const createOp = op.create(testUtxo.publicKey, depositAmount);
+
+          depositTx.addOperation(createOp);
+          depositTx.addOperation(
+            op
+              .deposit(user.address() as Ed25519PublicKey, depositAmount)
+              .addConditions([createOp.toCondition()]),
+          );
+
+          const latestLedger = await rpc.getLatestLedger();
+          const signatureExpirationLedger = latestLedger.sequence + 100;
+          const nonce = generateNonce();
+
+          await depositTx.signExtWithEd25519(
+            userKeys,
+            signatureExpirationLedger,
+            nonce,
+          );
+
+          await depositTx.signWithProvider(
+            providerKeys,
+            signatureExpirationLedger,
+            nonce,
+          );
+
+          return depositTx;
+        };
+
+        const initialDepositTx = await buildSignedDepositTx();
+        await channelClient.invokeRaw({
+          operationArgs: {
+            function: ChannelInvokeMethods.transact,
+            args: [initialDepositTx.buildXDR()],
+            auth: [...initialDepositTx.getSignedAuthEntries()],
+          },
+          config: txConfig,
+        });
+
+        const duplicateDepositTx = await buildSignedDepositTx();
+        let duplicateCreateError: unknown;
+
+        try {
+          await channelClient.invokeRaw({
+            operationArgs: {
+              function: ChannelInvokeMethods.transact,
+              args: [duplicateDepositTx.buildXDR()],
+              auth: [...duplicateDepositTx.getSignedAuthEntries()],
+            },
+            config: txConfig,
+          });
+        } catch (e) {
+          duplicateCreateError = e;
+          console.error("Duplicate UTXO transact failed as expected:", e);
+
+          if (e instanceof SimulateTransactionErrors.SIMULATION_FAILED) {
+            console.error(
+              "Duplicate UTXO transaction XDR:",
+              e.meta.data.input.transaction.toXDR(),
+            );
+          }
+        }
+
+        assertExists(
+          duplicateCreateError,
+          "Creating the same UTXO twice should fail",
+        );
+      });
+
       it("should calculate total balance across UNSPENT UTXOs", async () => {
         const testRoot = "S-TEST_SECRET_ROOT_4";
 

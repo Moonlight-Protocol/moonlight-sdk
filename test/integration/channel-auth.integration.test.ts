@@ -1,9 +1,10 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists, assertInstanceOf } from "@std/assert";
 import { beforeAll, describe, it } from "@std/testing/bdd";
 
 import {
   Contract,
   initializeWithFriendbot,
+  KNOWN_CONTRACT_ERROR_SIMULATION_FAILED,
   LocalSigner,
   NativeAccount,
   NetworkConfig,
@@ -24,6 +25,7 @@ import {
   AuthSpec,
 } from "../../src/channel-auth/constants.ts";
 import { ChannelAuth } from "../../src/channel-auth/index.ts";
+import { MoonlightContractError } from "../../src/error/contract-errors.ts";
 import { disableSanitizeConfig } from "../utils/disable-sanitize-config.ts";
 import type { ChannelTypes } from "@moonlight/moonlight-sdk";
 
@@ -202,6 +204,66 @@ describe("[Testnet - Integration] ChannelAuth", disableSanitizeConfig, () => {
       });
 
       assertEquals(adminAfterAccept, newAdmin.address() as Ed25519PublicKey);
+    });
+
+    it("should surface a known contract error when removing a provider that is not registered", async () => {
+      const authContract = new Contract({
+        networkConfig,
+        contractConfig: {
+          spec: AuthSpec,
+          // deno-lint-ignore no-explicit-any
+          wasm: authWasm as any,
+        },
+      });
+
+      await authContract.uploadWasm({
+        ...adminTxConfig,
+      });
+
+      await authContract.deploy({
+        config: adminTxConfig,
+        constructorArgs: {
+          admin: admin.address() as Ed25519PublicKey,
+        } as ChannelTypes.ChannelConstructorArgs,
+      });
+
+      const authClient = new ChannelAuth(
+        networkConfig,
+        authContract.getContractId(),
+      );
+      let providerNotRegisteredError: unknown;
+
+      try {
+        await authClient.invoke({
+          method: AuthInvokeMethods.remove_provider,
+          methodArgs: { provider: providerA.address() as Ed25519PublicKey },
+          config: adminTxConfig,
+        });
+      } catch (error) {
+        providerNotRegisteredError = error;
+      }
+
+      assertInstanceOf(
+        providerNotRegisteredError,
+        KNOWN_CONTRACT_ERROR_SIMULATION_FAILED,
+      );
+      assertEquals(
+        providerNotRegisteredError.message,
+        "Contract error: ProviderNotRegistered",
+      );
+      assertEquals(providerNotRegisteredError.meta.data.match.code, 1013);
+      assertEquals(
+        providerNotRegisteredError.meta.data.match.message,
+        MoonlightContractError[1013].message,
+      );
+      assertEquals(
+        providerNotRegisteredError.meta.data.match.details,
+        MoonlightContractError[1013].details,
+      );
+      assertEquals(
+        providerNotRegisteredError.diagnostic?.rootCause,
+        MoonlightContractError[1013].details,
+      );
     });
   });
 });
