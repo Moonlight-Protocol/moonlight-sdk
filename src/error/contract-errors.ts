@@ -4,7 +4,7 @@ import {
   type KnownContractErrorMap,
 } from "@colibri/core";
 
-export const MoonlightContractError = {
+export const MoonlightContractError: KnownContractErrorMap = {
   1000: {
     message: "BadArg",
     details:
