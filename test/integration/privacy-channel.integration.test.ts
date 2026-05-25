@@ -8,7 +8,6 @@ import {
   LocalSigner,
   NativeAccount,
   NetworkConfig,
-  SimulateTransactionErrors,
 } from "@colibri/core";
 
 import type {
@@ -268,25 +267,14 @@ describe(
           nonce,
         );
 
-        await channelClient
-          .invokeRaw({
-            operationArgs: {
-              function: ChannelInvokeMethods.transact,
-              args: [depositTx.buildXDR()],
-              auth: [...depositTx.getSignedAuthEntries()],
-            },
-            config: txConfig,
-          })
-          .catch((e) => {
-            if (e instanceof SimulateTransactionErrors.SIMULATION_FAILED) {
-              console.error("Error invoking contract:", e);
-              console.error(
-                "Transaction XDR:",
-                e.meta.data.input.transaction.toXDR(),
-              );
-            }
-            throw e;
-          });
+        await channelClient.invokeRaw({
+          operationArgs: {
+            function: ChannelInvokeMethods.transact,
+            args: [depositTx.buildXDR()],
+            auth: [...depositTx.getSignedAuthEntries()],
+          },
+          config: txConfig,
+        });
 
         const utxoABal = await channelClient.read({
           method: ChannelReadMethods.utxo_balance,

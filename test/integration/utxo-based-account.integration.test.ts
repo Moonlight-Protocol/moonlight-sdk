@@ -11,7 +11,6 @@ import {
   LocalSigner,
   NativeAccount,
   NetworkConfig,
-  SimulateTransactionErrors,
   type TransactionConfig,
 } from "@colibri/core";
 
@@ -301,25 +300,14 @@ describe(
         );
 
         // Execute the deposit transaction
-        await channelClient
-          .invokeRaw({
-            operationArgs: {
-              function: ChannelInvokeMethods.transact,
-              args: [depositTx.buildXDR()],
-              auth: [...depositTx.getSignedAuthEntries()],
-            },
-            config: txConfig,
-          })
-          .catch((e) => {
-            if (e instanceof SimulateTransactionErrors.SIMULATION_FAILED) {
-              console.error("Error invoking contract:", e);
-              console.error(
-                "Transaction XDR:",
-                e.meta.data.input.transaction.toXDR(),
-              );
-            }
-            throw e;
-          });
+        await channelClient.invokeRaw({
+          operationArgs: {
+            function: ChannelInvokeMethods.transact,
+            args: [depositTx.buildXDR()],
+            auth: [...depositTx.getSignedAuthEntries()],
+          },
+          config: txConfig,
+        });
 
         // Update UTXO state manually (simulating what batchLoad would do)
         utxoAccount.updateUTXOState(0, UTXOStatus.UNSPENT, depositAmount);
@@ -350,7 +338,7 @@ describe(
         );
       });
 
-      it("should log the contract error when creating the same UTXO twice", async () => {
+      it("should surface the contract error when creating the same UTXO twice", async () => {
         const testRoot = "S-TEST_SECRET_ROOT_DUPLICATE_CREATE";
         const depositAmount = 500000n; // 0.05 XLM
 
@@ -425,14 +413,6 @@ describe(
           });
         } catch (e) {
           duplicateCreateError = e;
-          console.error("Duplicate UTXO transact failed as expected:", e);
-
-          if (e instanceof SimulateTransactionErrors.SIMULATION_FAILED) {
-            console.error(
-              "Duplicate UTXO transaction XDR:",
-              e.meta.data.input.transaction.toXDR(),
-            );
-          }
         }
 
         assertExists(
@@ -670,25 +650,14 @@ describe(
         );
 
         // Execute the withdraw transaction
-        await channelClient
-          .invokeRaw({
-            operationArgs: {
-              function: ChannelInvokeMethods.transact,
-              args: [withdrawTx.buildXDR()],
-              auth: [...withdrawTx.getSignedAuthEntries()],
-            },
-            config: txConfig,
-          })
-          .catch((e) => {
-            if (e instanceof SimulateTransactionErrors.SIMULATION_FAILED) {
-              console.error("Error invoking withdraw contract:", e);
-              console.error(
-                "Transaction XDR:",
-                e.meta.data.input.transaction.toXDR(),
-              );
-            }
-            throw e;
-          });
+        await channelClient.invokeRaw({
+          operationArgs: {
+            function: ChannelInvokeMethods.transact,
+            args: [withdrawTx.buildXDR()],
+            auth: [...withdrawTx.getSignedAuthEntries()],
+          },
+          config: txConfig,
+        });
 
         // Update UTXO state to SPENT
         utxoAccount.updateUTXOState(0, UTXOStatus.SPENT, 0n);
