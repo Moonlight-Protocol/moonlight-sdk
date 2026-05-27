@@ -1,5 +1,5 @@
 // deno-lint-ignore-file require-await
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists, assertInstanceOf } from "@std/assert";
 import { beforeAll, describe, it } from "@std/testing/bdd";
 
 import {
@@ -8,6 +8,7 @@ import {
   type Ed25519PublicKey,
   type Ed25519SecretKey,
   initializeWithFriendbot,
+  KNOWN_CONTRACT_ERROR_SIMULATION_FAILED,
   LocalSigner,
   NativeAccount,
   NetworkConfig,
@@ -28,6 +29,7 @@ import {
   ChannelSpec,
   type ChannelTypes,
   generateNonce,
+  MoonlightContractError,
   MoonlightOperation as op,
   MoonlightTransactionBuilder,
   PrivacyChannel,
@@ -418,6 +420,27 @@ describe(
         assertExists(
           duplicateCreateError,
           "Creating the same UTXO twice should fail",
+        );
+        assertInstanceOf(
+          duplicateCreateError,
+          KNOWN_CONTRACT_ERROR_SIMULATION_FAILED,
+        );
+        assertEquals(
+          duplicateCreateError.message,
+          "Contract error: UtxoAlreadyExists",
+        );
+        assertEquals(duplicateCreateError.meta.data.match.code, 2000);
+        assertEquals(
+          duplicateCreateError.meta.data.match.message,
+          MoonlightContractError[2000].message,
+        );
+        assertEquals(
+          duplicateCreateError.meta.data.match.details,
+          MoonlightContractError[2000].details,
+        );
+        assertEquals(
+          duplicateCreateError.diagnostic?.rootCause,
+          MoonlightContractError[2000].details,
         );
       });
 
