@@ -4,7 +4,11 @@ import { describe, it } from "@std/testing/bdd";
 import { PrivacyChannel } from "./index.ts";
 import { ChannelReadMethods } from "./constants.ts";
 import type { MoonlightSpan, MoonlightTracer } from "../tracing/index.ts";
-import type { ContractId, NetworkConfig } from "@colibri/core";
+import {
+  CONTRACT_ERROR_MATCHER_PLUGIN_ID,
+  type ContractId,
+  type NetworkConfig,
+} from "@colibri/core";
 
 function createSpyTracer() {
   const events: {
@@ -65,7 +69,57 @@ function createChannelWithMockClient(tracer?: MoonlightTracer) {
   return { channel, mockClient };
 }
 
+type PipelinePluginIdentity = {
+  id: string;
+  target: string;
+};
+
+type ContractWithPluginPipelines = {
+  invokePipe: { plugins: readonly PipelinePluginIdentity[] };
+  readPipe: { plugins: readonly PipelinePluginIdentity[] };
+};
+
 describe("PrivacyChannel", () => {
+  describe("Contract errors", () => {
+    it("should attach Moonlight contract error matching to invoke calls", () => {
+      const channel = new PrivacyChannel(
+        MOCK_NETWORK_CONFIG,
+        TEST_CHANNEL_ID,
+        TEST_AUTH_ID,
+        TEST_ASSET_ID,
+      );
+      const client =
+        (channel as unknown as { _client: ContractWithPluginPipelines })
+          ._client;
+
+      const plugin = client.invokePipe.plugins.find((candidate) =>
+        candidate.id === CONTRACT_ERROR_MATCHER_PLUGIN_ID
+      );
+
+      assertExists(plugin);
+      assertEquals(plugin.target, "simulate-transaction");
+    });
+
+    it("should attach Moonlight contract error matching to read calls", () => {
+      const channel = new PrivacyChannel(
+        MOCK_NETWORK_CONFIG,
+        TEST_CHANNEL_ID,
+        TEST_AUTH_ID,
+        TEST_ASSET_ID,
+      );
+      const client =
+        (channel as unknown as { _client: ContractWithPluginPipelines })
+          ._client;
+
+      const plugin = client.readPipe.plugins.find((candidate) =>
+        candidate.id === CONTRACT_ERROR_MATCHER_PLUGIN_ID
+      );
+
+      assertExists(plugin);
+      assertEquals(plugin.target, "simulate-transaction");
+    });
+  });
+
   describe("Tracing", () => {
     it("should return tracer via getTracer when provided", () => {
       const spy = createSpyTracer();

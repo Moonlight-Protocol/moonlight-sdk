@@ -26,19 +26,12 @@ export const deployPrivacyPool = async (args: {
     signers: [admin],
   };
 
-  console.log("Uploading pool contract...");
   await pool.uploadWasm(txInvocation);
-
-  console.log("Pool contract uploaded: ", pool.getWasmHash());
-
-  console.log("Deploying pool contract...");
 
   await pool.deploy({
     ...txInvocation,
     contractArgs: { admin: admin.getPublicKey() },
   });
-
-  console.log("Pool contract deployed: ", pool.getContractId());
 
   return pool;
 };

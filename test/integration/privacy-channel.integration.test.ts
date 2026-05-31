@@ -1,13 +1,13 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists, assertInstanceOf } from "@std/assert";
 import { beforeAll, describe, it } from "@std/testing/bdd";
 
 import {
   Contract,
   initializeWithFriendbot,
+  KNOWN_CONTRACT_ERROR_SIMULATION_FAILED,
   LocalSigner,
   NativeAccount,
   NetworkConfig,
-  SimulateTransactionErrors,
 } from "@colibri/core";
 
 import type {
@@ -29,6 +29,7 @@ import {
   type ChannelTypes,
   generateNonce,
   generateP256KeyPair,
+  MoonlightContractError,
   MoonlightOperation as op,
   PrivacyChannel,
 } from "../../mod.ts";
@@ -266,25 +267,14 @@ describe(
           nonce,
         );
 
-        await channelClient
-          .invokeRaw({
-            operationArgs: {
-              function: ChannelInvokeMethods.transact,
-              args: [depositTx.buildXDR()],
-              auth: [...depositTx.getSignedAuthEntries()],
-            },
-            config: txConfig,
-          })
-          .catch((e) => {
-            if (e instanceof SimulateTransactionErrors.SIMULATION_FAILED) {
-              console.error("Error invoking contract:", e);
-              console.error(
-                "Transaction XDR:",
-                e.meta.data.input.transaction.toXDR(),
-              );
-            }
-            throw e;
-          });
+        await channelClient.invokeRaw({
+          operationArgs: {
+            function: ChannelInvokeMethods.transact,
+            args: [depositTx.buildXDR()],
+            auth: [...depositTx.getSignedAuthEntries()],
+          },
+          config: txConfig,
+        });
 
         const utxoABal = await channelClient.read({
           method: ChannelReadMethods.utxo_balance,
@@ -300,6 +290,120 @@ describe(
         assertEquals(utxoABal, 250n);
         assertExists(utxoBBal);
         assertEquals(utxoBBal, 250n);
+      });
+
+      it("should surface a known contract error when creating the same UTXO twice", async () => {
+        const channelClient = new PrivacyChannel(
+          networkConfig,
+          channelId,
+          authId,
+          assetId,
+        );
+
+        const utxoKeypair = await generateP256KeyPair();
+
+        const initialDepositTx = MoonlightTransactionBuilder.fromPrivacyChannel(
+          channelClient,
+        );
+        const initialCreateOp = op.create(utxoKeypair.publicKey, 250n);
+        initialDepositTx.addOperation(initialCreateOp);
+        initialDepositTx.addOperation(
+          op
+            .deposit(john.address() as Ed25519PublicKey, 250n)
+            .addConditions([initialCreateOp.toCondition()]),
+        );
+
+        const initialLatestLedger = await rpc.getLatestLedger();
+        const initialSignatureExpirationLedger = initialLatestLedger.sequence +
+          100;
+        const initialNonce = generateNonce();
+
+        await initialDepositTx.signExtWithEd25519(
+          johnKeys,
+          initialSignatureExpirationLedger,
+          initialNonce,
+        );
+
+        await initialDepositTx.signWithProvider(
+          providerKeys,
+          initialSignatureExpirationLedger,
+          initialNonce,
+        );
+
+        await channelClient.invokeRaw({
+          operationArgs: {
+            function: ChannelInvokeMethods.transact,
+            args: [initialDepositTx.buildXDR()],
+            auth: [...initialDepositTx.getSignedAuthEntries()],
+          },
+          config: txConfig,
+        });
+
+        const duplicateDepositTx = MoonlightTransactionBuilder
+          .fromPrivacyChannel(
+            channelClient,
+          );
+        const duplicateCreateOp = op.create(utxoKeypair.publicKey, 250n);
+        duplicateDepositTx.addOperation(duplicateCreateOp);
+        duplicateDepositTx.addOperation(
+          op
+            .deposit(john.address() as Ed25519PublicKey, 250n)
+            .addConditions([duplicateCreateOp.toCondition()]),
+        );
+
+        const duplicateLatestLedger = await rpc.getLatestLedger();
+        const duplicateSignatureExpirationLedger =
+          duplicateLatestLedger.sequence + 100;
+        const duplicateNonce = generateNonce();
+
+        await duplicateDepositTx.signExtWithEd25519(
+          johnKeys,
+          duplicateSignatureExpirationLedger,
+          duplicateNonce,
+        );
+
+        await duplicateDepositTx.signWithProvider(
+          providerKeys,
+          duplicateSignatureExpirationLedger,
+          duplicateNonce,
+        );
+
+        let duplicateCreateError: unknown;
+
+        try {
+          await channelClient.invokeRaw({
+            operationArgs: {
+              function: ChannelInvokeMethods.transact,
+              args: [duplicateDepositTx.buildXDR()],
+              auth: [...duplicateDepositTx.getSignedAuthEntries()],
+            },
+            config: txConfig,
+          });
+        } catch (error) {
+          duplicateCreateError = error;
+        }
+
+        assertInstanceOf(
+          duplicateCreateError,
+          KNOWN_CONTRACT_ERROR_SIMULATION_FAILED,
+        );
+        assertEquals(
+          duplicateCreateError.message,
+          "Contract error: UtxoAlreadyExists",
+        );
+        assertEquals(duplicateCreateError.meta.data.match.code, 2000);
+        assertEquals(
+          duplicateCreateError.meta.data.match.message,
+          MoonlightContractError[2000].message,
+        );
+        assertEquals(
+          duplicateCreateError.meta.data.match.details,
+          MoonlightContractError[2000].details,
+        );
+        assertEquals(
+          duplicateCreateError.diagnostic?.rootCause,
+          MoonlightContractError[2000].details,
+        );
       });
     });
   },

@@ -30,6 +30,7 @@ export * from "./src/utxo-based-account/utxo-based-stellar-account/index.ts";
 export * from "./src/utils/index.ts";
 
 export * from "./src/error/index.ts";
+export * from "./src/error/contract-errors.ts";
 export type * from "./src/error/types.ts";
 export * from "./src/error/errors.ts";
 

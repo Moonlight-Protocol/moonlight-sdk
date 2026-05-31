@@ -17,6 +17,7 @@ import * as E from "./error.ts";
 import type { UTXOPublicKey } from "../core/utxo-keypair-base/types.ts";
 import { Buffer } from "buffer";
 import { type MoonlightTracer, withTrace } from "../tracing/index.ts";
+import { createMoonlightContractErrorPlugins } from "../error/contract-errors.ts";
 
 export class PrivacyChannel {
   private _client: Contract;
@@ -36,7 +37,11 @@ export class PrivacyChannel {
 
     this._client = new Contract({
       networkConfig,
-      contractConfig: { contractId: channelId, spec: ChannelSpec },
+      contractConfig: {
+        contractId: channelId,
+        spec: ChannelSpec,
+        plugins: createMoonlightContractErrorPlugins(),
+      },
     });
 
     this._authId = authId;

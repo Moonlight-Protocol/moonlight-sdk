@@ -28,6 +28,10 @@ export type AuthRead = {
 };
 
 export type AuthInvoke = {
+  [AuthInvokeMethods.accept_admin]: {
+    input: None;
+    output: None;
+  };
   [AuthInvokeMethods.set_admin]: {
     input: SetAdminInput;
     output: None;

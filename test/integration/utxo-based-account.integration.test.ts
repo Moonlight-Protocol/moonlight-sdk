@@ -1,5 +1,5 @@
 // deno-lint-ignore-file require-await
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists, assertInstanceOf } from "@std/assert";
 import { beforeAll, describe, it } from "@std/testing/bdd";
 
 import {
@@ -8,10 +8,10 @@ import {
   type Ed25519PublicKey,
   type Ed25519SecretKey,
   initializeWithFriendbot,
+  KNOWN_CONTRACT_ERROR_SIMULATION_FAILED,
   LocalSigner,
   NativeAccount,
   NetworkConfig,
-  SimulateTransactionErrors,
   type TransactionConfig,
 } from "@colibri/core";
 
@@ -29,6 +29,7 @@ import {
   ChannelSpec,
   type ChannelTypes,
   generateNonce,
+  MoonlightContractError,
   MoonlightOperation as op,
   MoonlightTransactionBuilder,
   PrivacyChannel,
@@ -301,25 +302,14 @@ describe(
         );
 
         // Execute the deposit transaction
-        await channelClient
-          .invokeRaw({
-            operationArgs: {
-              function: ChannelInvokeMethods.transact,
-              args: [depositTx.buildXDR()],
-              auth: [...depositTx.getSignedAuthEntries()],
-            },
-            config: txConfig,
-          })
-          .catch((e) => {
-            if (e instanceof SimulateTransactionErrors.SIMULATION_FAILED) {
-              console.error("Error invoking contract:", e);
-              console.error(
-                "Transaction XDR:",
-                e.meta.data.input.transaction.toXDR(),
-              );
-            }
-            throw e;
-          });
+        await channelClient.invokeRaw({
+          operationArgs: {
+            function: ChannelInvokeMethods.transact,
+            args: [depositTx.buildXDR()],
+            auth: [...depositTx.getSignedAuthEntries()],
+          },
+          config: txConfig,
+        });
 
         // Update UTXO state manually (simulating what batchLoad would do)
         utxoAccount.updateUTXOState(0, UTXOStatus.UNSPENT, depositAmount);
@@ -347,6 +337,110 @@ describe(
           unspentUtxo.balance,
           depositAmount,
           "UTXO should have correct balance",
+        );
+      });
+
+      it("should surface the contract error when creating the same UTXO twice", async () => {
+        const testRoot = "S-TEST_SECRET_ROOT_DUPLICATE_CREATE";
+        const depositAmount = 500000n; // 0.05 XLM
+
+        const utxoAccount = UtxoBasedStellarAccount.fromPrivacyChannel({
+          channelClient,
+          root: testRoot,
+          options: {
+            batchSize: 10,
+          },
+        });
+
+        await utxoAccount.deriveBatch({ startIndex: 0, count: 1 });
+        const freeUtxos = utxoAccount.getUTXOsByState(UTXOStatus.FREE);
+        assertEquals(freeUtxos.length, 1, "Should have one FREE UTXO");
+
+        const testUtxo = freeUtxos[0];
+        assertExists(testUtxo, "Should have a test UTXO");
+
+        const buildSignedDepositTx = async () => {
+          const depositTx = MoonlightTransactionBuilder.fromPrivacyChannel(
+            channelClient,
+          );
+          const createOp = op.create(testUtxo.publicKey, depositAmount);
+
+          depositTx.addOperation(createOp);
+          depositTx.addOperation(
+            op
+              .deposit(user.address() as Ed25519PublicKey, depositAmount)
+              .addConditions([createOp.toCondition()]),
+          );
+
+          const latestLedger = await rpc.getLatestLedger();
+          const signatureExpirationLedger = latestLedger.sequence + 100;
+          const nonce = generateNonce();
+
+          await depositTx.signExtWithEd25519(
+            userKeys,
+            signatureExpirationLedger,
+            nonce,
+          );
+
+          await depositTx.signWithProvider(
+            providerKeys,
+            signatureExpirationLedger,
+            nonce,
+          );
+
+          return depositTx;
+        };
+
+        const initialDepositTx = await buildSignedDepositTx();
+        await channelClient.invokeRaw({
+          operationArgs: {
+            function: ChannelInvokeMethods.transact,
+            args: [initialDepositTx.buildXDR()],
+            auth: [...initialDepositTx.getSignedAuthEntries()],
+          },
+          config: txConfig,
+        });
+
+        const duplicateDepositTx = await buildSignedDepositTx();
+        let duplicateCreateError: unknown;
+
+        try {
+          await channelClient.invokeRaw({
+            operationArgs: {
+              function: ChannelInvokeMethods.transact,
+              args: [duplicateDepositTx.buildXDR()],
+              auth: [...duplicateDepositTx.getSignedAuthEntries()],
+            },
+            config: txConfig,
+          });
+        } catch (e) {
+          duplicateCreateError = e;
+        }
+
+        assertExists(
+          duplicateCreateError,
+          "Creating the same UTXO twice should fail",
+        );
+        assertInstanceOf(
+          duplicateCreateError,
+          KNOWN_CONTRACT_ERROR_SIMULATION_FAILED,
+        );
+        assertEquals(
+          duplicateCreateError.message,
+          "Contract error: UtxoAlreadyExists",
+        );
+        assertEquals(duplicateCreateError.meta.data.match.code, 2000);
+        assertEquals(
+          duplicateCreateError.meta.data.match.message,
+          MoonlightContractError[2000].message,
+        );
+        assertEquals(
+          duplicateCreateError.meta.data.match.details,
+          MoonlightContractError[2000].details,
+        );
+        assertEquals(
+          duplicateCreateError.diagnostic?.rootCause,
+          MoonlightContractError[2000].details,
         );
       });
 
@@ -579,25 +673,14 @@ describe(
         );
 
         // Execute the withdraw transaction
-        await channelClient
-          .invokeRaw({
-            operationArgs: {
-              function: ChannelInvokeMethods.transact,
-              args: [withdrawTx.buildXDR()],
-              auth: [...withdrawTx.getSignedAuthEntries()],
-            },
-            config: txConfig,
-          })
-          .catch((e) => {
-            if (e instanceof SimulateTransactionErrors.SIMULATION_FAILED) {
-              console.error("Error invoking withdraw contract:", e);
-              console.error(
-                "Transaction XDR:",
-                e.meta.data.input.transaction.toXDR(),
-              );
-            }
-            throw e;
-          });
+        await channelClient.invokeRaw({
+          operationArgs: {
+            function: ChannelInvokeMethods.transact,
+            args: [withdrawTx.buildXDR()],
+            auth: [...withdrawTx.getSignedAuthEntries()],
+          },
+          config: txConfig,
+        });
 
         // Update UTXO state to SPENT
         utxoAccount.updateUTXOState(0, UTXOStatus.SPENT, 0n);
