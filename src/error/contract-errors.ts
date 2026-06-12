@@ -145,6 +145,19 @@ export const MoonlightContractError: KnownContractErrorMap = {
     details:
       "An amount calculation went below the minimum supported integer value.",
   },
+  3006: {
+    message: "UnauthorizedOperation",
+    details:
+      "An executed create/withdraw effect is not covered by an owner-signed condition, or an owner-signed create/withdraw condition is not executed by the bundle.",
+  },
+  3007: {
+    message: "InvalidExternalAmount",
+    details: "A deposit or withdraw amount was not strictly positive.",
+  },
+  3008: {
+    message: "ReentrantCall",
+    details: "transact was re-entered while a call was already in progress.",
+  },
   4000: {
     message: "NotEd25519AccountAddress",
     details:
