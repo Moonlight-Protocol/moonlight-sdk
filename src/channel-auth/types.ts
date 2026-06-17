@@ -13,6 +13,8 @@ export type SetAdminInput = { new_admin: Ed25519PublicKey | ContractId };
 export type UpgradeInput = { wasm_hash: string };
 export type AddProviderInput = { provider: Ed25519PublicKey | ContractId };
 export type RemoveProviderInput = { provider: Ed25519PublicKey | ContractId };
+export type EnableChannelInput = { channel: ContractId; asset: ContractId };
+export type DisableChannelInput = { channel: ContractId; asset: ContractId };
 
 export type None = object;
 
@@ -46,6 +48,14 @@ export type AuthInvoke = {
   };
   [AuthInvokeMethods.remove_provider]: {
     input: RemoveProviderInput;
+    output: None;
+  };
+  [AuthInvokeMethods.enable_channel]: {
+    input: EnableChannelInput;
+    output: None;
+  };
+  [AuthInvokeMethods.disable_channel]: {
+    input: DisableChannelInput;
     output: None;
   };
 };
