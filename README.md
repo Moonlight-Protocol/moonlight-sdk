@@ -31,6 +31,26 @@ This SDK provides functionalities to:
 - **Handle Privacy Transactions:** Facilitate the creation and submission of
   transactions for deposits and withdrawals involving private UTXOs.
 
+## Running tests
+
+- **`deno task test:unit`** — unit tests only (`*.unit.test.ts`). No network or
+  running stack required; fully deterministic. This is the fast inner loop and
+  what to run while developing.
+- **`deno task test:integration`** / **`deno task test`** (the latter is what CI
+  runs) — also runs the `*.integration.test.ts` suites. These deploy contracts
+  to and transact on **public Stellar testnet** (`NetworkConfig.TestNet()`);
+  there is **no local-stack override** today, so they require outbound network
+  access and Friendbot funding. Because they hit shared public testnet, the
+  transaction-submit step can intermittently fail
+  (`ColibriError STX_002:
+  Failed to send transaction`) when the network is
+  congested — re-run before treating it as a real failure.
+
+The bundled contract WASMs under `test/contracts/` are the artifacts the
+integration tests deploy; refresh them from the matching `soroban-core` release
+whenever the contracts change (see the channel-auth method map in
+`src/channel-auth/constants.ts`).
+
 ## Contributing
 
 We welcome contributions! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) file
