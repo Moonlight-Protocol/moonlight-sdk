@@ -112,11 +112,6 @@ export const MoonlightContractError: KnownContractErrorMap = {
     details:
       "The UTXO module cannot authorize transactions because no authorization contract is configured.",
   },
-  2009: {
-    message: "InvalidDrawerSlot",
-    details:
-      "A UTXO metadata record points to a slot outside its drawer bitmap range.",
-  },
   3000: {
     message: "RepeatedAccountForDeposit",
     details: "The same account appears more than once in the deposit list.",
