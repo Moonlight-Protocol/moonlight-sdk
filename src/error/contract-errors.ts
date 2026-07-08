@@ -149,10 +149,6 @@ export const MoonlightContractError: KnownContractErrorMap = {
     message: "InvalidExternalAmount",
     details: "A deposit or withdraw amount was not strictly positive.",
   },
-  3008: {
-    message: "ReentrantCall",
-    details: "transact was re-entered while a call was already in progress.",
-  },
   4000: {
     message: "NotEd25519AccountAddress",
     details:
